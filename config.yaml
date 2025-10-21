@@ -3,7 +3,7 @@
 # OpenRouter API Key (required)
 # Get your key from: https://openrouter.ai/keys
 # You can also set this via OPENROUTER_API_KEY environment variable
-openrouter_api_key: "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"
+openrouter_api_key: ""
 
 # Model settings
 model: "google/gemini-2.5-flash"

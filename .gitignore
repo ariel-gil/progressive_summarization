@@ -39,6 +39,4 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Config with API keys (if you want to keep it private)
-# Uncomment the next line if you don't want to commit your API key
-# config.yaml
+config.yaml

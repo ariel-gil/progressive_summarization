@@ -129,6 +129,7 @@ def main():
         def check_processing():
             """Poll to see if processing is complete."""
             if processing_done:
+                loading.progress.stop()  # Stop progress bar animation
                 loading.destroy()
             else:
                 # Check again in 100ms

@@ -1,6 +1,7 @@
 # Progressive Summarization Viewer
 
-A desktop application that generates hierarchical summaries of markdown files and provides an interactive viewer to navigate between abstraction levels.
+A desktop application that generates hierarchical summaries of markdown files and provides an interactive viewer to navigate between abstraction levels. Based on ideas from Tiago Forte. 
+Status - very rough experiment, it sort of works but not really usable. 
 
 ## Features
 

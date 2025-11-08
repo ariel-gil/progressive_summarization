@@ -238,18 +238,35 @@ class SummaryViewer(tk.Tk):
         )
         slider_label.pack(anchor=tk.W, pady=(0, 8))
 
-        # Slider with custom styling
+        # Slider with custom styling - scaled by 10 for finer control
+        self.slider_scale = 10
         self.slider = ttk.Scale(
-            slider_frame, from_=0, to=self.max_level, orient=tk.HORIZONTAL,
-            command=self._on_slider_change
+            slider_frame, from_=0, to=self.max_level * self.slider_scale,
+            orient=tk.HORIZONTAL, command=self._on_slider_change
         )
-        self.slider.set(self.max_level)
-        self.slider.pack(fill=tk.X, pady=(0, 8))
+        self.slider.set(self.max_level * self.slider_scale)
+        self.slider.pack(fill=tk.X, pady=(0, 12))
 
-        # Level markers
+        # Level markers with ticks
         markers_frame = tk.Frame(slider_frame, bg=Colors.bg_primary)
         markers_frame.pack(fill=tk.X)
 
+        # Create tick marks for each level
+        tick_frame = tk.Frame(slider_frame, bg=Colors.bg_primary, height=6)
+        tick_frame.pack(fill=tk.X, pady=(0, 4))
+
+        for i in range(self.max_level + 1):
+            # Calculate position as percentage
+            percentage = i / self.max_level if self.max_level > 0 else 0
+
+            # Create small tick mark
+            tick = tk.Label(
+                tick_frame, text="|", bg=Colors.bg_primary,
+                fg=Colors.text_tertiary, font=("Segoe UI", 6)
+            )
+            tick.place(relx=percentage, anchor=tk.N)
+
+        # Level labels
         for i in range(self.max_level + 1):
             label_text = "Original" if i == 0 else f"L{i}"
             marker = tk.Label(
@@ -322,7 +339,8 @@ class SummaryViewer(tk.Tk):
 
     def _on_slider_change(self, value):
         """Handle slider value change."""
-        new_level = int(float(value))
+        # Scale down from the slider's 0-maxlevel*10 range to actual level
+        new_level = int(float(value) / self.slider_scale)
         if new_level != self.current_level:
             self.current_level = new_level
             self.current_parent = None

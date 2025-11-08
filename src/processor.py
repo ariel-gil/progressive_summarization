@@ -1,9 +1,10 @@
 """Markdown processing and summarization logic."""
 
 import asyncio
+import re
 import time
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import openai
 from openai import AsyncOpenAI
 
@@ -20,9 +21,169 @@ Chunk = Dict[str, Any]
 DocumentCache = Dict[str, Any]
 
 
+def parse_markdown_with_headers(file_path: str) -> List[Chunk]:
+    """
+    Parse markdown file into semantic chunks based on headers and content.
+
+    Uses a hybrid approach:
+    1. If markdown has headers, group paragraphs under headers as natural topics
+    2. If no headers, fall back to intelligent paragraph grouping
+
+    Args:
+        file_path: Path to markdown file
+
+    Returns:
+        List of level 0 Chunk dictionaries with topic/header awareness
+    """
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Split into lines to detect headers
+    lines = content.split('\n')
+
+    # Regex to detect markdown headers: # ## ### etc.
+    header_pattern = re.compile(r'^(#{1,6})\s+(.+)$')
+
+    # First, detect if document has headers
+    has_headers = any(header_pattern.match(line) for line in lines)
+
+    if has_headers:
+        return _parse_with_headers(lines, header_pattern)
+    else:
+        return _parse_without_headers(content)
+
+
+def _parse_with_headers(lines: List[str], header_pattern) -> List[Chunk]:
+    """
+    Parse markdown with header-based chunking.
+
+    Groups content under headers as topic-based chunks.
+    """
+    chunks = []
+    chunk_id = 0
+    current_header = None
+    current_header_level = 0
+    current_content = []
+    position = 0
+
+    for line in lines:
+        header_match = header_pattern.match(line)
+
+        if header_match:
+            # Found a new header - save previous section if exists
+            if current_content:
+                content_text = '\n'.join(current_content).strip()
+                if content_text:
+                    chunk = {
+                        "id": f"chunk_{chunk_id}",
+                        "level": 0,
+                        "content": content_text,
+                        "parent_id": None,
+                        "child_ids": [],
+                        "position": position,
+                        "header": current_header,
+                        "header_level": current_header_level
+                    }
+                    chunks.append(chunk)
+                    chunk_id += 1
+                    position += 1
+                current_content = []
+
+            # Extract header info
+            header_symbols = header_match.group(1)
+            header_text = header_match.group(2).strip()
+            current_header_level = len(header_symbols)
+            current_header = header_text
+
+        elif line.strip():  # Non-empty, non-header line
+            current_content.append(line)
+
+    # Save final section
+    if current_content:
+        content_text = '\n'.join(current_content).strip()
+        if content_text:
+            chunk = {
+                "id": f"chunk_{chunk_id}",
+                "level": 0,
+                "content": content_text,
+                "parent_id": None,
+                "child_ids": [],
+                "position": position,
+                "header": current_header,
+                "header_level": current_header_level
+            }
+            chunks.append(chunk)
+
+    return chunks
+
+
+def _parse_without_headers(content: str) -> List[Chunk]:
+    """
+    Parse markdown without headers - fall back to paragraph-based chunking.
+
+    Groups paragraphs intelligently based on length and density.
+    """
+    # Split by double newlines to get logical paragraphs
+    paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
+
+    # Group small paragraphs together to avoid too many tiny chunks
+    chunks = []
+    chunk_id = 0
+    position = 0
+    current_group = []
+    current_length = 0
+    min_chunk_size = 200  # Minimum characters per chunk
+    max_chunk_size = 1500  # Maximum before we force a break
+
+    for para in paragraphs:
+        current_group.append(para)
+        current_length += len(para)
+
+        # Create chunk if we've hit limits
+        should_chunk = (
+            (current_length >= max_chunk_size) or  # Too long
+            (len(current_group) >= 5)  # Too many paragraphs
+        )
+
+        if should_chunk and current_group:
+            content_text = '\n\n'.join(current_group)
+            chunk = {
+                "id": f"chunk_{chunk_id}",
+                "level": 0,
+                "content": content_text,
+                "parent_id": None,
+                "child_ids": [],
+                "position": position,
+                "header": None,
+                "header_level": 0
+            }
+            chunks.append(chunk)
+            chunk_id += 1
+            position += 1
+            current_group = []
+            current_length = 0
+
+    # Save remaining
+    if current_group:
+        content_text = '\n\n'.join(current_group)
+        chunk = {
+            "id": f"chunk_{chunk_id}",
+            "level": 0,
+            "content": content_text,
+            "parent_id": None,
+            "child_ids": [],
+            "position": position,
+            "header": None,
+            "header_level": 0
+        }
+        chunks.append(chunk)
+
+    return chunks
+
+
 def parse_markdown(file_path: str) -> List[Chunk]:
     """
-    Parse markdown file into level 0 chunks (paragraphs).
+    Parse markdown file into level 0 chunks using smart header-based chunking.
 
     Args:
         file_path: Path to markdown file
@@ -30,43 +191,44 @@ def parse_markdown(file_path: str) -> List[Chunk]:
     Returns:
         List of level 0 Chunk dictionaries
     """
-    with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    # Split by double newlines to get paragraphs
-    paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
-
-    # Create level 0 chunks
-    chunks = []
-    for idx, para in enumerate(paragraphs):
-        chunk = {
-            "id": f"chunk_{idx}",
-            "level": 0,
-            "content": para,
-            "parent_id": None,
-            "child_ids": [],
-            "position": idx
-        }
-        chunks.append(chunk)
-
-    return chunks
+    return parse_markdown_with_headers(file_path)
 
 
 def group_chunks(chunks: List[Chunk], group_size: int = 5) -> List[List[Chunk]]:
     """
-    Group consecutive chunks for batch summarization.
+    Group consecutive chunks intelligently for batch summarization.
+
+    Respects topic/header boundaries - doesn't split sections across groups
+    unless a single section is larger than group_size.
 
     Args:
         chunks: List of chunks at the same level
-        group_size: Number of chunks per group (default 5)
+        group_size: Target number of chunks per group (soft limit)
 
     Returns:
         List of chunk groups (each group is a list of chunks)
     """
+    if not chunks:
+        return []
+
     groups = []
-    for i in range(0, len(chunks), group_size):
-        group = chunks[i:i + group_size]
-        groups.append(group)
+    current_group = []
+    current_group_size = 0
+
+    for chunk in chunks:
+        # Check if we should start a new group
+        # Only split if current group is full OR we have a topic change at this chunk
+        if (current_group_size >= group_size and current_group):
+            groups.append(current_group)
+            current_group = [chunk]
+            current_group_size = 1
+        else:
+            current_group.append(chunk)
+            current_group_size += 1
+
+    # Add remaining group
+    if current_group:
+        groups.append(current_group)
 
     return groups
 
@@ -90,11 +252,15 @@ async def summarize_chunk_group(
         New summary Chunk with level+1
     """
     # Build prompt with all chunk contents
-    chunk_texts = [f"Section {i+1}:\n{chunk['content']}" for i, chunk in enumerate(chunks)]
+    chunk_texts = []
+    for i, chunk in enumerate(chunks):
+        header_info = f" ({chunk.get('header', 'Untitled')})" if chunk.get('header') else ""
+        chunk_texts.append(f"Section {i+1}{header_info}:\n{chunk['content']}")
+
     combined_text = "\n\n".join(chunk_texts)
 
     prompt = f"""Summarize the following text sections into a single coherent summary.
-Preserve key information and maintain logical flow.
+Preserve key information and maintain logical flow. Keep the same narrative structure where possible.
 
 {combined_text}
 
@@ -118,13 +284,22 @@ Provide only the summary, no preamble."""
             summary_text = response.choices[0].message.content.strip()
 
             # Create new chunk
+            # Use first chunk's header if all chunks are from same section
+            header = None
+            header_level = 0
+            if all(c.get('header') == chunks[0].get('header') for c in chunks):
+                header = chunks[0].get('header')
+                header_level = chunks[0].get('header_level', 0)
+
             new_chunk = {
                 "id": f"chunk_{next_chunk_id}",
                 "level": chunks[0]["level"] + 1,
                 "content": summary_text,
-                "parent_id": None,  # Will be set if there's a higher level
+                "parent_id": None,
                 "child_ids": [chunk["id"] for chunk in chunks],
-                "position": chunks[0]["position"]  # Use first chunk's position
+                "position": chunks[0]["position"],
+                "header": header,
+                "header_level": header_level
             }
 
             # Update children to point to this parent
@@ -228,9 +403,9 @@ def process_file(file_path: str, config: Dict[str, Any]) -> DocumentCache:
 
     print(f"Processing {file_path}...")
 
-    # Parse markdown
+    # Parse markdown with smart chunking
     level_0_chunks = parse_markdown(file_path)
-    print(f"Parsed {len(level_0_chunks)} paragraphs")
+    print(f"Parsed {len(level_0_chunks)} semantic chunks")
 
     # Build summary tree
     api_key = config['openrouter_api_key']

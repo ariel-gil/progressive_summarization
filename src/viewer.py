@@ -106,8 +106,15 @@ class ChunkCard(tk.Frame):
         header.pack(fill=tk.X, side=tk.TOP)
         header.pack_propagate(False)
 
-        # Title
+        # Build title with topic/header info if available
         title_text = f"Section {index + 1}" if level > 0 else f"Paragraph {index + 1}"
+
+        # Add header/topic info if this chunk has it
+        if self.chunk.get('header') and level == 0:
+            title_text = f"{self.chunk['header']}"
+        elif self.chunk.get('header') and level > 0:
+            title_text = f"{title_text} • {self.chunk['header']}"
+
         title = tk.Label(
             header, text=title_text, bg=Colors.bg_secondary,
             fg=Colors.text_primary, font=("Segoe UI", 11, "bold")

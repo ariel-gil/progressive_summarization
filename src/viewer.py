@@ -146,18 +146,31 @@ class ChunkCard(tk.Frame):
         text_widget.config(state=tk.DISABLED)
         text_widget.pack(fill=tk.BOTH, expand=True)
 
-        # Footer with interaction hint
+        # Footer with interaction hint and depth indicator
         if self.chunk.get('child_ids') and self.on_click:
             footer = tk.Frame(self, bg=Colors.bg_secondary, height=40)
             footer.pack(fill=tk.X, side=tk.BOTTOM)
             footer.pack_propagate(False)
 
+            hint_frame = tk.Frame(footer, bg=Colors.bg_secondary)
+            hint_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=12, pady=8)
+
             hint = tk.Label(
-                footer, text="↙ Click to zoom in", bg=Colors.bg_secondary,
+                hint_frame, text="↙ Click to zoom in", bg=Colors.bg_secondary,
                 fg=Colors.accent_primary, font=("Segoe UI", 9, "italic"),
                 cursor="hand2"
             )
-            hint.pack(side=tk.LEFT, padx=12, pady=8)
+            hint.pack(side=tk.LEFT)
+
+            # Add depth indicator (how many children this chunk has)
+            child_count = len(self.chunk.get('child_ids', []))
+            if child_count > 0:
+                depth_indicator = tk.Label(
+                    footer, text=f"▶ {child_count} sub-item{'s' if child_count > 1 else ''}",
+                    bg=Colors.bg_secondary, fg=Colors.text_tertiary,
+                    font=("Segoe UI", 8), padx=8
+                )
+                depth_indicator.pack(side=tk.RIGHT, padx=4)
 
             # Make card clickable
             for widget in [self, header, title, footer, hint, text_widget]:

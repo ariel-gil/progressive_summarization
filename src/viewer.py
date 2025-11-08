@@ -246,6 +246,8 @@ class SummaryViewer(tk.Tk):
         self.bind('<Right>', lambda e: self._keyboard_navigate(1))
         self.bind('<Home>', lambda e: self._jump_to_level(0))
         self.bind('<End>', lambda e: self._jump_to_level(self.max_level))
+        self.bind('<?>', lambda e: self._show_help())
+        self.bind('<h>', lambda e: self._show_help())
 
         # Slider section with better styling
         slider_frame = tk.Frame(self, bg=Colors.bg_primary)
@@ -405,6 +407,54 @@ class SummaryViewer(tk.Tk):
             self.render_level(level)
             # Smooth scroll to top when jumping
             self.canvas.yview_moveto(0)
+
+    def _show_help(self):
+        """Show keyboard shortcuts help."""
+        help_text = """Progressive Summarization Keyboard Shortcuts
+
+Navigation:
+  ← → Arrow Keys     Navigate between abstraction levels
+  Home              Jump to original text (Level 0)
+  End               Jump to most abstract summary
+  Scroll            Smooth scroll through content
+
+Interaction:
+  Click Cards       Zoom in on a section to explore further
+  Breadcrumbs       Click to navigate back up
+
+Tips:
+  • Drag the slider for smooth level transitions
+  • Use arrow keys for quick navigation
+  • Cards show how many sub-items they contain
+  • Press 'H' or '?' anytime to see this help
+"""
+
+        help_window = tk.Toplevel(self)
+        help_window.title("Keyboard Shortcuts")
+        help_window.geometry("400x350")
+        help_window.config(bg=Colors.bg_primary)
+
+        # Text widget with help content
+        help_display = tk.Text(
+            help_window, wrap=tk.WORD, font=("Segoe UI", 9),
+            bg=Colors.bg_secondary, fg=Colors.text_primary,
+            padx=15, pady=15, relief=tk.FLAT, borderwidth=0
+        )
+        help_display.insert('1.0', help_text)
+        help_display.config(state=tk.DISABLED)
+        help_display.pack(fill=tk.BOTH, expand=True)
+
+        # Close button
+        close_frame = tk.Frame(help_window, bg=Colors.bg_secondary)
+        close_frame.pack(fill=tk.X)
+
+        close_btn = tk.Button(
+            close_frame, text="Close", command=help_window.destroy,
+            bg=Colors.accent_primary, fg="white",
+            font=("Segoe UI", 9), padx=15, pady=8,
+            relief=tk.FLAT, cursor="hand2"
+        )
+        close_btn.pack(pady=10)
 
     def render_level(self, level: int, parent_id: Optional[str] = None):
         """

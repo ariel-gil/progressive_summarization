@@ -2,7 +2,7 @@
 
 import sys
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 import threading
 from pathlib import Path
 
@@ -14,48 +14,77 @@ from processor import process_file
 from viewer import SummaryViewer
 
 
-class LoadingDialog(tk.Toplevel):
-    """Simple loading dialog to show during processing."""
+class ModernLoadingDialog(tk.Toplevel):
+    """Modern loading dialog with better styling."""
 
     def __init__(self, parent):
         """
-        Initialize loading dialog.
+        Initialize modern loading dialog.
 
         Args:
             parent: Parent window
         """
         super().__init__(parent)
         self.title("Processing...")
-        self.geometry("300x100")
+        self.geometry("400x220")
+        self.resizable(False, False)
 
         # Center the window
         self.transient(parent)
         self.grab_set()
 
-        # Remove window decorations (optional)
-        # self.overrideredirect(True)
+        # Set colors
+        self.bg_primary = "#ffffff"
+        self.bg_secondary = "#f8f9fa"
+        self.accent = "#0d6efd"
+        self.config(bg=self.bg_primary)
 
-        # Create label
-        self.label = tk.Label(
-            self,
-            text="Processing markdown file...\nThis may take a few minutes.",
-            font=('Arial', 10),
-            pady=20
-        )
-        self.label.pack()
+        # Main frame with padding
+        main_frame = tk.Frame(self, bg=self.bg_primary)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=30)
 
-        # Progress indicator (indeterminate)
-        self.progress = tk.ttk.Progressbar(
-            self,
-            mode='indeterminate',
-            length=250
+        # Title
+        title = tk.Label(
+            main_frame, text="Processing Document", bg=self.bg_primary,
+            fg="#1a1a1a", font=("Segoe UI", 14, "bold")
         )
-        self.progress.pack(pady=10)
+        title.pack(anchor=tk.W, pady=(0, 10))
+
+        # Subtitle
+        subtitle = tk.Label(
+            main_frame, text="Generating summaries at multiple abstraction levels...",
+            bg=self.bg_primary, fg="#6c757d", font=("Segoe UI", 9)
+        )
+        subtitle.pack(anchor=tk.W, pady=(0, 20))
+
+        # Progress bar
+        self.progress = ttk.Progressbar(
+            main_frame, mode='indeterminate', length=340
+        )
+        self.progress.pack(fill=tk.X, pady=(0, 15))
         self.progress.start(10)
+
+        # Status message
+        self.status_label = tk.Label(
+            main_frame, text="Starting processing...", bg=self.bg_primary,
+            fg="#6c757d", font=("Segoe UI", 9), justify=tk.LEFT
+        )
+        self.status_label.pack(anchor=tk.W)
+
+        # Cancel button
+        button_frame = tk.Frame(main_frame, bg=self.bg_primary)
+        button_frame.pack(fill=tk.X, pady=(20, 0))
+
+        self.cancel_button = tk.Button(
+            button_frame, text="Cancel", bg=self.bg_secondary,
+            fg="#1a1a1a", font=("Segoe UI", 9), padx=15, pady=6,
+            relief=tk.FLAT, cursor="hand2"
+        )
+        self.cancel_button.pack(anchor=tk.E)
 
     def update_message(self, message: str):
         """Update the loading message."""
-        self.label.config(text=message)
+        self.status_label.config(text=message)
 
 
 def show_error(title: str, message: str):
@@ -110,7 +139,7 @@ def main():
             return
 
         # Show loading dialog
-        loading = LoadingDialog(root)
+        loading = ModernLoadingDialog(root)
 
         # Process file in background thread
         document_cache = None

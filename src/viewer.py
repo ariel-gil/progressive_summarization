@@ -228,6 +228,12 @@ class SummaryViewer(tk.Tk):
         )
         self.level_label.pack(anchor=tk.W, pady=(5, 0))
 
+        # Bind keyboard shortcuts
+        self.bind('<Left>', lambda e: self._keyboard_navigate(-1))
+        self.bind('<Right>', lambda e: self._keyboard_navigate(1))
+        self.bind('<Home>', lambda e: self._jump_to_level(0))
+        self.bind('<End>', lambda e: self._jump_to_level(self.max_level))
+
         # Slider section with better styling
         slider_frame = tk.Frame(self, bg=Colors.bg_primary)
         slider_frame.pack(fill=tk.X, padx=20, pady=(15, 10))
@@ -240,6 +246,17 @@ class SummaryViewer(tk.Tk):
 
         # Slider with custom styling - scaled by 10 for finer control
         self.slider_scale = 10
+
+        # Real-time level display
+        slider_info_frame = tk.Frame(slider_frame, bg=Colors.bg_primary)
+        slider_info_frame.pack(fill=tk.X, pady=(0, 8))
+
+        self.slider_value_label = tk.Label(
+            slider_info_frame, text="", bg=Colors.bg_primary,
+            fg=Colors.accent_primary, font=("Segoe UI", 9, "bold")
+        )
+        self.slider_value_label.pack(side=tk.RIGHT)
+
         self.slider = ttk.Scale(
             slider_frame, from_=0, to=self.max_level * self.slider_scale,
             orient=tk.HORIZONTAL, command=self._on_slider_change
@@ -334,18 +351,47 @@ class SummaryViewer(tk.Tk):
         breadcrumb.pack(anchor=tk.W)
 
     def _on_mousewheel(self, event):
-        """Handle mousewheel scrolling."""
-        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        """Handle mousewheel scrolling with smooth effect."""
+        # Smooth scroll by smaller increments
+        self.canvas.yview_scroll(int(-1 * (event.delta / 120) * 2), "units")
 
     def _on_slider_change(self, value):
         """Handle slider value change."""
         # Scale down from the slider's 0-maxlevel*10 range to actual level
         new_level = int(float(value) / self.slider_scale)
+
+        # Update real-time display
+        descriptions = ["Detailed", "Summary", "Abstract", "Very Abstract", "Ultra-Concise"]
+        desc = descriptions[min(new_level, len(descriptions) - 1)]
+        self.slider_value_label.config(text=f"Level {new_level} • {desc}")
+
         if new_level != self.current_level:
             self.current_level = new_level
             self.current_parent = None
             self.breadcrumb_trail = []
-            self.render_level(self.current_level)
+            # Use after() for smooth rendering without blocking
+            self.after(0, lambda: self.render_level(self.current_level))
+
+    def _keyboard_navigate(self, direction: int):
+        """Navigate between levels with arrow keys."""
+        new_level = self.current_level + direction
+        if 0 <= new_level <= self.max_level:
+            self.current_level = new_level
+            self.current_parent = None
+            self.breadcrumb_trail = []
+            self.slider.set(new_level * self.slider_scale)
+            self.render_level(new_level)
+
+    def _jump_to_level(self, level: int):
+        """Jump directly to a level (Home/End keys)."""
+        if 0 <= level <= self.max_level:
+            self.current_level = level
+            self.current_parent = None
+            self.breadcrumb_trail = []
+            self.slider.set(level * self.slider_scale)
+            self.render_level(level)
+            # Smooth scroll to top when jumping
+            self.canvas.yview_moveto(0)
 
     def render_level(self, level: int, parent_id: Optional[str] = None):
         """

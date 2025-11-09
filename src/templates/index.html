@@ -301,6 +301,105 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* Table of Contents */
+        #toc {
+            position: fixed;
+            left: 2rem;
+            top: 6rem;
+            max-width: 250px;
+            max-height: calc(100vh - 8rem);
+            overflow-y: auto;
+            background: var(--bg-header);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 50;
+        }
+
+        #toc.visible {
+            opacity: 0.9;
+            pointer-events: all;
+        }
+
+        #toc:hover {
+            opacity: 1;
+        }
+
+        #toc-header {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.8rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #toc-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.2rem 0.4rem;
+            font-size: 1rem;
+        }
+
+        #toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #toc-list li {
+            margin-bottom: 0.4rem;
+        }
+
+        #toc-list a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.8rem;
+            display: block;
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        #toc-list a:hover {
+            background: var(--bg-secondary);
+            color: var(--accent);
+        }
+
+        #toc-list a.active {
+            color: var(--accent);
+            background: var(--bg-secondary);
+        }
+
+        #toc-list .toc-h1 {
+            font-weight: 600;
+            padding-left: 0.5rem;
+        }
+
+        #toc-list .toc-h2 {
+            padding-left: 1rem;
+        }
+
+        #toc-list .toc-h3 {
+            padding-left: 1.5rem;
+            font-size: 0.75rem;
+        }
+
+        /* Hide ToC on small screens */
+        @media (max-width: 1400px) {
+            #toc {
+                display: none;
+            }
+        }
+
         /* Keyboard hints */
         .keyboard-hint {
             position: fixed;
@@ -366,6 +465,17 @@
         <div id="content" class="fade-in">
             <div class="spinner"></div>
         </div>
+    </div>
+
+    <!-- Table of Contents -->
+    <div id="toc">
+        <div id="toc-header">
+            Contents
+            <button id="toc-toggle" onclick="toggleToc()">×</button>
+        </div>
+        <ul id="toc-list">
+            <!-- Generated dynamically -->
+        </ul>
     </div>
 
     <div class="keyboard-hint">
@@ -505,13 +615,23 @@
         // Render markdown content
         function renderContent(markdown) {
             const contentDiv = document.getElementById('content');
+            let headingCounter = 0;
 
             // Simple markdown to HTML (basic support)
             let html = markdown
-                // Headers
-                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                // Headers (with IDs for ToC linking)
+                .replace(/^### (.*$)/gim, (match, text) => {
+                    const id = `heading-${headingCounter++}`;
+                    return `<h3 id="${id}">${text}</h3>`;
+                })
+                .replace(/^## (.*$)/gim, (match, text) => {
+                    const id = `heading-${headingCounter++}`;
+                    return `<h2 id="${id}">${text}</h2>`;
+                })
+                .replace(/^# (.*$)/gim, (match, text) => {
+                    const id = `heading-${headingCounter++}`;
+                    return `<h1 id="${id}">${text}</h1>`;
+                })
                 // Bold
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 // Italic
@@ -527,6 +647,55 @@
             html = '<p>' + html + '</p>';
 
             contentDiv.innerHTML = html;
+
+            // Generate table of contents
+            generateToc();
+        }
+
+        // Generate Table of Contents
+        function generateToc() {
+            const contentDiv = document.getElementById('content');
+            const headings = contentDiv.querySelectorAll('h1, h2, h3');
+            const tocList = document.getElementById('toc-list');
+            const tocDiv = document.getElementById('toc');
+
+            tocList.innerHTML = '';
+
+            if (headings.length === 0) {
+                tocDiv.classList.remove('visible');
+                return;
+            }
+
+            headings.forEach((heading, index) => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+
+                a.textContent = heading.textContent;
+                a.href = '#' + heading.id;
+                a.className = 'toc-' + heading.tagName.toLowerCase();
+
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                    // Update active state
+                    document.querySelectorAll('#toc-list a').forEach(link => {
+                        link.classList.remove('active');
+                    });
+                    a.classList.add('active');
+                });
+
+                li.appendChild(a);
+                tocList.appendChild(li);
+            });
+
+            tocDiv.classList.add('visible');
+        }
+
+        // Toggle ToC visibility
+        function toggleToc() {
+            const tocDiv = document.getElementById('toc');
+            tocDiv.classList.toggle('visible');
         }
 
         // New document

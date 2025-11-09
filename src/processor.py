@@ -69,52 +69,76 @@ Document:
 
 Paragraph summary:"""
     elif compression_ratio >= 0.7:
-        # Level 7: 2 paragraphs
-        prompt = f"""Provide a summary of the following document in exactly 2 paragraphs.
-First paragraph: main thesis/point. Second paragraph: key supporting details.
+        # Level 7: 2 paragraphs with heading
+        prompt = f"""Provide a summary of the following document in exactly 2 paragraphs with appropriate headings.
+
+Use markdown formatting:
+- Start with a ## heading that captures the main topic
+- First paragraph: main thesis/point
+- Second paragraph: key supporting details
 
 Document:
 {content}
 
-Two-paragraph summary:"""
+Markdown summary:"""
     elif compression_ratio >= 0.6:
-        # Level 6: 3-4 paragraphs
-        prompt = f"""Provide a summary of the following document in 3-4 paragraphs.
+        # Level 6: 3-4 paragraphs with headings
+        prompt = f"""Provide a summary of the following document in 3-4 paragraphs with markdown headings.
+
+Structure your summary using:
+- ## Main heading for the document
+- ### Subheadings for major sections (2-3 sections)
+- Clear paragraphs under each heading
+
 Include main points and important conclusions.
 
 Document:
 {content}
 
-Summary:"""
+Markdown summary:"""
     elif compression_ratio >= 0.5:
-        # Level 5: Executive summary (5-7 paragraphs)
-        prompt = f"""Provide an executive summary of the following document in 5-7 paragraphs.
+        # Level 5: Executive summary with headings
+        prompt = f"""Provide an executive summary of the following document in 5-7 paragraphs with markdown structure.
+
+Use this format:
+- ## Main heading
+- ### Key Points (2-3 paragraphs)
+- ### Important Conclusions (2-3 paragraphs)
+
 Cover main points, key insights, and important conclusions.
 
 Document:
 {content}
 
-Executive summary:"""
+Markdown executive summary:"""
     elif compression_ratio >= 0.35:
-        # Level 4-3: Comprehensive summary
-        prompt = f"""Provide a comprehensive summary of the following document.
-Preserve key details, important examples, and main arguments.
-Target roughly {int(compression_ratio * 100)}% of the original length.
+        # Level 4-3: Comprehensive summary with full structure
+        prompt = f"""Provide a comprehensive summary of the following document with full markdown structure.
+
+Requirements:
+- Use ## for main sections and ### for subsections
+- Include 3-5 major sections with appropriate headings
+- Preserve key details, important examples, and main arguments
+- Target roughly {int(compression_ratio * 100)}% of the original length
 
 Document:
 {content}
 
-Comprehensive summary:"""
+Markdown summary:"""
     else:
-        # Level 2-1: Detailed summary
-        prompt = f"""Provide a detailed summary of the following document.
-Preserve most key details, examples, nuanced points, and maintain the document structure.
-Target roughly {int(compression_ratio * 100)}% of the original length.
+        # Level 2-1: Detailed summary with complete structure
+        prompt = f"""Provide a detailed summary of the following document with complete markdown structure.
+
+Requirements:
+- Preserve the document's heading hierarchy (## and ###)
+- Include all major sections with clear headings
+- Preserve most key details, examples, nuanced points, and maintain the document structure
+- Target roughly {int(compression_ratio * 100)}% of the original length
 
 Document:
 {content}
 
-Detailed summary:"""
+Markdown summary:"""
 
     client = AsyncOpenAI(
         base_url="https://openrouter.ai/api/v1",

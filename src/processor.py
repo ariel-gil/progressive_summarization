@@ -1,10 +1,8 @@
-"""Markdown processing and summarization logic."""
+"""Markdown processing and whole-document summarization."""
 
 import asyncio
-import time
 from datetime import datetime
-from typing import Dict, List, Any, Optional
-import openai
+from typing import Dict, List, Any
 from openai import AsyncOpenAI
 
 from cache_manager import (
@@ -15,126 +13,82 @@ from cache_manager import (
 )
 
 
-# Type aliases for clarity
-Chunk = Dict[str, Any]
+# Type alias
 DocumentCache = Dict[str, Any]
 
 
-def parse_markdown(file_path: str, min_chunk_size: int = 100) -> List[Chunk]:
-    """
-    Parse markdown file into level 0 chunks (paragraphs).
-
-    Combines short paragraphs and filters out very small chunks to create
-    more meaningful semantic units.
-
-    Args:
-        file_path: Path to markdown file
-        min_chunk_size: Minimum characters per chunk (default 100)
-
-    Returns:
-        List of level 0 Chunk dictionaries
-    """
-    with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    # Split by double newlines to get initial paragraphs
-    raw_paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
-
-    # Combine small paragraphs into larger semantic chunks
-    chunks = []
-    current_chunk_text = []
-    current_chunk_size = 0
-
-    for para in raw_paragraphs:
-        para_size = len(para)
-
-        # If adding this paragraph would exceed a reasonable size, or
-        # if we have enough content already, create a chunk
-        if current_chunk_size > 0 and (
-            current_chunk_size + para_size > 1000 or  # Max chunk size
-            (current_chunk_size >= min_chunk_size and para_size > 200)  # Both are substantial
-        ):
-            # Save current chunk
-            chunk_content = '\n\n'.join(current_chunk_text)
-            chunks.append(chunk_content)
-            current_chunk_text = [para]
-            current_chunk_size = para_size
-        else:
-            # Add to current chunk
-            current_chunk_text.append(para)
-            current_chunk_size += para_size
-
-    # Add final chunk if exists
-    if current_chunk_text:
-        chunk_content = '\n\n'.join(current_chunk_text)
-        if len(chunk_content) >= min_chunk_size or not chunks:  # Keep if substantial or only chunk
-            chunks.append(chunk_content)
-
-    # Convert to Chunk dictionaries
-    result = []
-    for idx, content_text in enumerate(chunks):
-        chunk = {
-            "id": f"chunk_{idx}",
-            "level": 0,
-            "content": content_text,
-            "parent_id": None,
-            "child_ids": [],
-            "position": idx
-        }
-        result.append(chunk)
-
-    return result
-
-
-def group_chunks(chunks: List[Chunk], group_size: int = 5) -> List[List[Chunk]]:
-    """
-    Group consecutive chunks for batch summarization.
-
-    Args:
-        chunks: List of chunks at the same level
-        group_size: Number of chunks per group (default 5)
-
-    Returns:
-        List of chunk groups (each group is a list of chunks)
-    """
-    groups = []
-    for i in range(0, len(chunks), group_size):
-        group = chunks[i:i + group_size]
-        groups.append(group)
-
-    return groups
-
-
-async def summarize_chunk_group(
-    chunks: List[Chunk],
+async def generate_summary(
+    content: str,
+    level: int,
+    total_levels: int,
     api_key: str,
-    model: str,
-    next_chunk_id: int
-) -> Chunk:
+    model: str
+) -> str:
     """
-    Summarize a group of chunks using OpenRouter API.
+    Generate a summary at a specific abstraction level.
 
     Args:
-        chunks: List of chunks to summarize together
+        content: Full document content
+        level: Target abstraction level (1=most detailed, total_levels=most abstract)
+        total_levels: Total number of abstraction levels
         api_key: OpenRouter API key
-        model: Model name (e.g., "google/gemini-2.0-flash-exp:free")
-        next_chunk_id: ID counter for new chunk
+        model: Model name
 
     Returns:
-        New summary Chunk with level+1
+        Summary text
     """
-    # Build prompt with all chunk contents
-    chunk_texts = [f"Section {i+1}:\n{chunk['content']}" for i, chunk in enumerate(chunks)]
-    combined_text = "\n\n".join(chunk_texts)
+    # Define compression targets based on level
+    # Calculate target compression ratio
+    compression_ratio = level / total_levels
 
-    prompt = f"""Summarize the following text sections into a single coherent summary.
-Preserve key information and maintain logical flow.
+    if level == total_levels:
+        # Ultra-compressed: 1-2 paragraphs
+        prompt = f"""Provide an ultra-compressed summary of the following document in 1-2 short paragraphs.
+Capture only the absolute core essence and main takeaway.
 
-{combined_text}
+Document:
+{content}
 
-Provide only the summary, no preamble."""
+Ultra-compressed summary:"""
+    elif compression_ratio >= 0.85:
+        # Very high compression: 2-4 paragraphs
+        prompt = f"""Provide a very brief summary of the following document in 2-4 paragraphs.
+Focus on the most critical points and key conclusions.
 
-    # Initialize async OpenAI client
+Document:
+{content}
+
+Brief summary:"""
+    elif compression_ratio >= 0.65:
+        # High compression: executive summary
+        prompt = f"""Provide an executive summary of the following document in about 5-8 paragraphs.
+Include the main points, key insights, and important conclusions.
+
+Document:
+{content}
+
+Executive summary:"""
+    elif compression_ratio >= 0.4:
+        # Medium compression: comprehensive summary
+        prompt = f"""Provide a comprehensive summary of the following document.
+Preserve key details, important examples, and main arguments.
+Target roughly {int(compression_ratio * 100)}% of the original length.
+
+Document:
+{content}
+
+Comprehensive summary:"""
+    else:
+        # Low compression: detailed summary
+        prompt = f"""Provide a detailed summary of the following document.
+Preserve most key details, examples, nuanced points, and maintain the document structure.
+Target roughly {int(compression_ratio * 100)}% of the original length.
+
+Document:
+{content}
+
+Detailed summary:"""
+
     client = AsyncOpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=api_key
@@ -149,108 +103,77 @@ Provide only the summary, no preamble."""
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            summary_text = response.choices[0].message.content.strip()
-
-            # Create new chunk
-            new_chunk = {
-                "id": f"chunk_{next_chunk_id}",
-                "level": chunks[0]["level"] + 1,
-                "content": summary_text,
-                "parent_id": None,  # Will be set if there's a higher level
-                "child_ids": [chunk["id"] for chunk in chunks],
-                "position": chunks[0]["position"]  # Use first chunk's position
-            }
-
-            # Update children to point to this parent
-            for chunk in chunks:
-                chunk["parent_id"] = new_chunk["id"]
-
-            return new_chunk
+            return response.choices[0].message.content.strip()
 
         except Exception as e:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff
+                wait_time = 2 ** attempt
                 print(f"API error (attempt {attempt+1}/{max_retries}): {e}")
                 print(f"Retrying in {wait_time}s...")
                 await asyncio.sleep(wait_time)
             else:
-                raise RuntimeError(f"Failed to summarize chunk group after {max_retries} attempts: {e}")
+                raise RuntimeError(f"Failed to generate summary after {max_retries} attempts: {e}")
 
 
-async def build_summary_tree(
-    level_0_chunks: List[Chunk],
+async def generate_all_summaries(
+    content: str,
     api_key: str,
     model: str,
-    max_level: int,
-    group_size: int = 5
-) -> List[Chunk]:
+    num_levels: int
+) -> List[Dict[str, Any]]:
     """
-    Build summary tree using bottom-up algorithm.
+    Generate all abstraction levels for a document.
 
     Args:
-        level_0_chunks: Original paragraph chunks
+        content: Full document content
         api_key: OpenRouter API key
         model: Model name
-        max_level: Maximum abstraction level
-        group_size: Chunks per summary group
+        num_levels: Number of abstraction levels (excluding original)
 
     Returns:
-        Flat list of all chunks (all levels combined)
+        List of document levels, from most abstract to original
     """
-    all_chunks = level_0_chunks.copy()
-    current_level_chunks = level_0_chunks.copy()
-    next_chunk_id = len(level_0_chunks)  # Start IDs after level 0
+    # Create tasks for all summary levels (in parallel)
+    tasks = []
+    for level in range(1, num_levels + 1):
+        task = generate_summary(content, level, num_levels, api_key, model)
+        tasks.append(task)
 
-    current_level = 0
+    print(f"Generating {num_levels} abstraction levels in parallel...")
+    summaries = await asyncio.gather(*tasks)
 
-    while current_level < max_level and len(current_level_chunks) > 1:
-        print(f"Processing level {current_level + 1} (grouping {len(current_level_chunks)} chunks)...")
+    # Build document levels list (from most abstract to most detailed)
+    levels = []
 
-        # Group chunks
-        groups = group_chunks(current_level_chunks, group_size)
+    # Add summaries in reverse order (most abstract first)
+    for i, summary in enumerate(reversed(summaries)):
+        level_num = num_levels - i
+        levels.append({
+            "level": level_num,
+            "content": summary,
+            "is_original": False
+        })
 
-        # Process groups in parallel with rate limiting
-        max_concurrent = 10
-        semaphore = asyncio.Semaphore(max_concurrent)
+    # Add original document as level 0
+    levels.append({
+        "level": 0,
+        "content": content,
+        "is_original": True
+    })
 
-        async def summarize_with_limit(group, chunk_id):
-            async with semaphore:
-                result = await summarize_chunk_group(group, api_key, model, chunk_id)
-                await asyncio.sleep(0.1)  # Rate limiting
-                return result
-
-        # Create tasks for all groups
-        tasks = [
-            summarize_with_limit(group, next_chunk_id + i)
-            for i, group in enumerate(groups)
-        ]
-
-        # Wait for all summaries at this level
-        new_level_chunks = await asyncio.gather(*tasks)
-
-        # Add to all chunks and prepare for next level
-        all_chunks.extend(new_level_chunks)
-        current_level_chunks = new_level_chunks
-        next_chunk_id += len(new_level_chunks)
-        current_level += 1
-
-        print(f"Level {current_level} complete: created {len(new_level_chunks)} summaries")
-
-    return all_chunks
+    return levels
 
 
 def process_file(file_path: str, config: Dict[str, Any]) -> DocumentCache:
     """
-    Orchestrate full processing pipeline for a markdown file.
-
-    Checks cache first, then parses and builds summary tree if needed.
+    Process a markdown file and generate abstraction levels.
 
     Args:
         file_path: Path to markdown file
         config: Configuration dictionary
 
     Returns:
-        DocumentCache with metadata and all chunks
+        DocumentCache with metadata and levels
     """
     cache_dir = config['cache_dir']
 
@@ -262,19 +185,19 @@ def process_file(file_path: str, config: Dict[str, Any]) -> DocumentCache:
 
     print(f"Processing {file_path}...")
 
-    # Parse markdown
-    level_0_chunks = parse_markdown(file_path)
-    print(f"Parsed {len(level_0_chunks)} paragraphs")
+    # Read full document
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
 
-    # Build summary tree
+    print(f"Document size: {len(content)} characters")
+
+    # Generate all abstraction levels
     api_key = config['openrouter_api_key']
     model = config['model']
-    max_level = config['abstraction_levels']
-    group_size = config['group_size']
+    num_levels = config['abstraction_levels']
 
-    # Run async tree building
-    all_chunks = asyncio.run(
-        build_summary_tree(level_0_chunks, api_key, model, max_level, group_size)
+    levels = asyncio.run(
+        generate_all_summaries(content, api_key, model, num_levels)
     )
 
     # Create document cache
@@ -283,13 +206,14 @@ def process_file(file_path: str, config: Dict[str, Any]) -> DocumentCache:
             "filename": file_path,
             "hash": compute_file_hash(file_path),
             "processed_at": datetime.now().isoformat(),
-            "model": model
+            "model": model,
+            "num_levels": num_levels
         },
-        "chunks": all_chunks
+        "levels": levels
     }
 
     # Save cache
     save_cache(document_cache, file_path, cache_dir)
-    print(f"Processing complete: {len(all_chunks)} total chunks")
+    print(f"Processing complete: {len(levels)} abstraction levels generated")
 
     return document_cache

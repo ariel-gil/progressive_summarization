@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progressive Summarization Viewer</title>
+    <style>
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252525;
+            --bg-header: #2d2d2d;
+            --text-primary: #e4e4e4;
+            --text-secondary: #b0b0b0;
+            --text-tertiary: #707070;
+            --accent: #4da6ff;
+            --border: #404040;
+            --transition-speed: 0.3s;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #fafafa;
+            --bg-header: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-tertiary: #999999;
+            --accent: #0066cc;
+            --border: #e0e0e0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            transition: background var(--transition-speed) ease;
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-header);
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .header-left h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .header-left p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .header-right {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        button {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        /* Upload Section */
+        #upload-section {
+            max-width: 600px;
+            margin: 4rem auto;
+            text-align: center;
+            padding: 3rem;
+            background: var(--bg-header);
+            border-radius: 12px;
+            border: 2px dashed var(--border);
+            transition: all var(--transition-speed) ease;
+        }
+
+        #upload-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        #upload-section p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            font-size: 1rem;
+            padding: 0.8rem 2rem;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(77, 166, 255, 0.3);
+        }
+
+        /* Viewer Section */
+        #viewer-section {
+            display: none;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Slider Controls */
+        .controls {
+            background: var(--bg-header);
+            padding: 1.5rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .controls-header label {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .level-badge {
+            background: var(--accent);
+            color: white;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            outline: none;
+            margin: 1rem 0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 8px rgba(77, 166, 255, 0.2);
+        }
+
+        .level-markers {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-tertiary);
+            font-size: 0.75rem;
+        }
+
+        /* Content Area */
+        #content {
+            background: var(--bg-primary);
+            padding: 3rem;
+            border-radius: 12px;
+            min-height: 400px;
+            max-width: 750px;
+            margin: 0 auto;
+            line-height: 1.7;
+            transition: all var(--transition-speed) ease;
+            position: relative;
+        }
+
+        #content.fade-out {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        #content.fade-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Markdown Styling */
+        #content h1, #content h2, #content h3 {
+            color: var(--accent);
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+        }
+
+        #content h1 { font-size: 2em; }
+        #content h2 { font-size: 1.5em; }
+        #content h3 { font-size: 1.25em; }
+
+        #content p {
+            margin-bottom: 1em;
+        }
+
+        #content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        #content a:hover {
+            text-decoration: underline;
+        }
+
+        #content code {
+            background: var(--bg-secondary);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+
+        #content pre {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+
+        #content ul, #content ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+
+        #content li {
+            margin-bottom: 0.5em;
+        }
+
+        #content blockquote {
+            border-left: 4px solid var(--accent);
+            padding-left: 1em;
+            margin: 1em 0;
+            color: var(--text-secondary);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid var(--bg-secondary);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Keyboard hints */
+        .keyboard-hint {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--bg-header);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .keyboard-hint:hover {
+            opacity: 1;
+        }
+
+        .keyboard-hint kbd {
+            background: var(--bg-secondary);
+            padding: 0.2em 0.5em;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            font-family: monospace;
+            margin: 0 0.2em;
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <header>
+        <div class="header-left">
+            <h1 id="doc-title">Progressive Summarization Viewer</h1>
+            <p id="level-description">Upload a markdown file to begin</p>
+        </div>
+        <div class="header-right">
+            <button id="theme-toggle" onclick="toggleTheme()">☀ Light Mode</button>
+            <button id="new-doc-btn" style="display: none;" onclick="newDocument()">📄 New Document</button>
+        </div>
+    </header>
+
+    <div id="upload-section">
+        <h2>📝 Start Summarizing</h2>
+        <p>Upload a markdown file to generate progressive summaries</p>
+        <input type="file" id="file-input" accept=".md" onchange="uploadFile()">
+        <button class="upload-btn" onclick="document.getElementById('file-input').click()">
+            Choose Markdown File
+        </button>
+    </div>
+
+    <div id="viewer-section">
+        <div class="controls">
+            <div class="controls-header">
+                <label>Abstraction Level (←/→)</label>
+                <span class="level-badge" id="level-badge">Level 10/10</span>
+            </div>
+            <input type="range" id="level-slider" min="0" max="10" value="10" oninput="changeLevel(this.value)">
+            <div class="level-markers" id="markers">
+                <!-- Generated dynamically -->
+            </div>
+        </div>
+
+        <div id="content" class="fade-in">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <div class="keyboard-hint">
+        <kbd>←</kbd><kbd>→</kbd> Change level  •  <kbd>Ctrl</kbd>+<kbd>D</kbd> Toggle theme
+    </div>
+
+    <script>
+        let currentDoc = null;
+        let currentLevel = 10;
+        let maxLevel = 10;
+        let scrollPosition = 0;
+
+        // Theme toggle
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            body.setAttribute('data-theme', newTheme);
+
+            const btn = document.getElementById('theme-toggle');
+            btn.textContent = newTheme === 'dark' ? '☀ Light Mode' : '🌙 Dark Mode';
+        }
+
+        // Upload file
+        async function uploadFile() {
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            // Show loading
+            document.getElementById('upload-section').style.display = 'none';
+            document.getElementById('viewer-section').style.display = 'block';
+            document.getElementById('doc-title').textContent = file.name;
+            document.getElementById('level-description').textContent = 'Processing...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to process file');
+                }
+
+                const data = await response.json();
+                currentDoc = data;
+                maxLevel = Math.max(...data.levels.map(l => l.level));
+
+                // Setup slider
+                const slider = document.getElementById('level-slider');
+                slider.max = maxLevel;
+                slider.value = maxLevel;
+                currentLevel = maxLevel;
+
+                // Generate markers
+                generateMarkers();
+
+                // Show first level
+                changeLevel(maxLevel);
+
+                // Show new doc button
+                document.getElementById('new-doc-btn').style.display = 'block';
+
+            } catch (error) {
+                alert('Error: ' + error.message);
+                newDocument();
+            }
+        }
+
+        // Generate level markers
+        function generateMarkers() {
+            const markers = document.getElementById('markers');
+            markers.innerHTML = '';
+
+            for (let i = maxLevel; i >= 0; i--) {
+                const span = document.createElement('span');
+                if (i === 0) span.textContent = 'Original';
+                else if (i === maxLevel) span.textContent = 'Ultra';
+                else if (i === maxLevel - 1) span.textContent = 'Brief';
+                else span.textContent = `L${i}`;
+                markers.appendChild(span);
+            }
+        }
+
+        // Change abstraction level
+        function changeLevel(level, animate = true) {
+            level = parseInt(level);
+            currentLevel = level;
+
+            if (!currentDoc) return;
+
+            // Find level data
+            const levelData = currentDoc.levels.find(l => l.level === level);
+            if (!levelData) return;
+
+            // Update badge
+            const badge = level === 0 ? 'Original' : `Level ${level}/${maxLevel}`;
+            document.getElementById('level-badge').textContent = badge;
+
+            // Update description
+            let description = '';
+            if (level === 0) description = 'Original document - Full content';
+            else if (level === maxLevel) description = 'Ultra-compressed - Core essence only';
+            else if (level === maxLevel - 1) description = 'Brief summary';
+            else description = `Summary level ${level}`;
+            document.getElementById('level-description').textContent = description;
+
+            // Save scroll position
+            const contentDiv = document.getElementById('content');
+            if (animate) {
+                scrollPosition = contentDiv.scrollTop / contentDiv.scrollHeight;
+            }
+
+            // Animate content change
+            if (animate) {
+                contentDiv.classList.add('fade-out');
+                setTimeout(() => {
+                    renderContent(levelData.content);
+                    contentDiv.classList.remove('fade-out');
+                    contentDiv.classList.add('fade-in');
+
+                    // Restore scroll position
+                    setTimeout(() => {
+                        contentDiv.scrollTop = scrollPosition * contentDiv.scrollHeight;
+                    }, 10);
+                }, 150);
+            } else {
+                renderContent(levelData.content);
+            }
+        }
+
+        // Render markdown content
+        function renderContent(markdown) {
+            const contentDiv = document.getElementById('content');
+
+            // Simple markdown to HTML (basic support)
+            let html = markdown
+                // Headers
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Links
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+                // Inline code
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                // Paragraphs
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/^(.+)$/gm, '$1');
+
+            html = '<p>' + html + '</p>';
+
+            contentDiv.innerHTML = html;
+        }
+
+        // New document
+        function newDocument() {
+            document.getElementById('viewer-section').style.display = 'none';
+            document.getElementById('upload-section').style.display = 'block';
+            document.getElementById('doc-title').textContent = 'Progressive Summarization Viewer';
+            document.getElementById('level-description').textContent = 'Upload a markdown file to begin';
+            document.getElementById('new-doc-btn').style.display = 'none';
+            document.getElementById('file-input').value = '';
+            currentDoc = null;
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (!currentDoc) return;
+
+            if (e.key === 'ArrowLeft') {
+                // More abstract
+                const slider = document.getElementById('level-slider');
+                if (currentLevel < maxLevel) {
+                    slider.value = currentLevel + 1;
+                    changeLevel(slider.value);
+                }
+            } else if (e.key === 'ArrowRight') {
+                // More detail
+                const slider = document.getElementById('level-slider');
+                if (currentLevel > 0) {
+                    slider.value = currentLevel - 1;
+                    changeLevel(slider.value);
+                }
+            } else if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                toggleTheme();
+            }
+        });
+    </script>
+</body>
+</html>

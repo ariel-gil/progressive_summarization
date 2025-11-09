@@ -179,89 +179,21 @@ class SummaryViewer(tk.Tk):
         content_container = tk.Frame(self, bg='#ffffff')
         content_container.pack(fill=tk.BOTH, expand=True, padx=40, pady=(20, 20))
 
-        # HTML/Markdown viewer
+        # HTML/Markdown viewer with better styling
         self.content_viewer = HTMLScrolledText(
             content_container,
-            html="",
+            html="<p>Loading...</p>",
             background='#ffffff',
-            font=('Segoe UI', 11),
             wrap=tk.WORD,
-            padx=20,
-            pady=20
+            padx=30,
+            pady=20,
+            borderwidth=0,
+            highlightthickness=0
         )
         self.content_viewer.pack(fill=tk.BOTH, expand=True)
 
-        # Apply custom CSS for better markdown rendering
-        self.markdown_css = """
-        <style>
-            body {
-                font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-                line-height: 1.7;
-                color: #1a1a1a;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
-            }
-            h1 {
-                font-size: 2em;
-                font-weight: 700;
-                margin-top: 1em;
-                margin-bottom: 0.5em;
-                color: #0066cc;
-            }
-            h2 {
-                font-size: 1.5em;
-                font-weight: 600;
-                margin-top: 1.2em;
-                margin-bottom: 0.4em;
-                color: #1a1a1a;
-            }
-            h3 {
-                font-size: 1.25em;
-                font-weight: 600;
-                margin-top: 1em;
-                margin-bottom: 0.3em;
-                color: #333333;
-            }
-            p {
-                margin-bottom: 1em;
-            }
-            ul, ol {
-                margin-bottom: 1em;
-                padding-left: 2em;
-            }
-            li {
-                margin-bottom: 0.5em;
-            }
-            code {
-                background-color: #f5f5f5;
-                padding: 2px 6px;
-                border-radius: 3px;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 0.9em;
-            }
-            pre {
-                background-color: #f5f5f5;
-                padding: 12px;
-                border-radius: 4px;
-                overflow-x: auto;
-                margin-bottom: 1em;
-            }
-            blockquote {
-                border-left: 4px solid #0066cc;
-                margin: 1em 0;
-                padding-left: 1em;
-                color: #666666;
-            }
-            a {
-                color: #0066cc;
-                text-decoration: none;
-            }
-            a:hover {
-                text-decoration: underline;
-            }
-        </style>
-        """
+        # Store scroll position for smooth transitions
+        self.scroll_position = 0.0
 
     def _get_level_description(self, level: int) -> str:
         """Get description for abstraction level."""
@@ -280,6 +212,22 @@ class SummaryViewer(tk.Tk):
             self.current_level = new_level
             self.render_level(new_level, animate=True)
 
+    def _save_scroll_position(self):
+        """Save current scroll position as a percentage."""
+        try:
+            # Get the vertical scrollbar position (0.0 to 1.0)
+            yview = self.content_viewer.yview()
+            self.scroll_position = yview[0]  # Top of visible area
+        except:
+            self.scroll_position = 0.0
+
+    def _restore_scroll_position(self):
+        """Restore saved scroll position."""
+        try:
+            self.content_viewer.yview_moveto(self.scroll_position)
+        except:
+            pass
+
     def render_level(self, level: int, animate: bool = True):
         """
         Render content at the specified abstraction level.
@@ -288,6 +236,10 @@ class SummaryViewer(tk.Tk):
             level: Abstraction level to display
             animate: Whether to animate the transition
         """
+        # Save scroll position before changing content
+        if animate:
+            self._save_scroll_position()
+
         # Find the level data
         level_data = None
         for lvl in self.levels:
@@ -309,21 +261,34 @@ class SummaryViewer(tk.Tk):
             badge = f"Level {level}/{self.max_level}"
         self.level_indicator.config(text=badge)
 
-        # Convert markdown to HTML
+        # Convert markdown to HTML (with clean styling)
         content = level_data['content']
         html_content = markdown.markdown(
             content,
-            extensions=['extra', 'codehilite', 'nl2br']
+            extensions=['extra', 'nl2br']
         )
 
-        # Combine CSS and HTML
-        full_html = self.markdown_css + html_content
+        # Wrap in a styled div for better appearance
+        styled_html = f"""
+        <div style="font-family: system-ui, -apple-system, sans-serif;
+                    line-height: 1.7;
+                    color: #1a1a1a;
+                    font-size: 11pt;
+                    max-width: 900px;
+                    margin: 0 auto;">
+            {html_content}
+        </div>
+        """
 
-        # Apply fade effect if animating
+        # Update content
+        self.content_viewer.set_html(styled_html)
+
+        # Restore scroll position after a brief delay
         if animate:
-            self._fade_transition(full_html)
+            self.after(10, self._restore_scroll_position)
         else:
-            self.content_viewer.set_html(full_html)
+            # First load, scroll to top
+            self.content_viewer.yview_moveto(0)
 
     def _fade_transition(self, new_html: str):
         """
@@ -332,13 +297,5 @@ class SummaryViewer(tk.Tk):
         Args:
             new_html: New HTML content to display
         """
-        # Cancel any ongoing animation
-        if self.fade_animation:
-            self.after_cancel(self.fade_animation)
-
-        # Simple approach: just update content with a brief delay
-        # For a real fade, we'd need to manipulate alpha or use a canvas overlay
-        self.content_viewer.set_html(new_html)
-
-        # Scroll to top smoothly
-        self.content_viewer.yview_moveto(0)
+        # This method is now unused but kept for potential future enhancements
+        pass

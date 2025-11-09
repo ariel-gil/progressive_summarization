@@ -1,0 +1,20 @@
+# Progressive Summarization Viewer Configuration
+
+# API Key is now loaded from .env file
+# Copy .env.template to .env and add your OpenRouter API key there
+
+# Model settings
+model: "google/gemini-2.5-flash"
+abstraction_levels: 3
+
+# Processing settings
+chunk_strategy: "paragraph"
+group_size: 5  # Number of chunks to summarize together
+
+# Cache settings
+cache_dir: ".summary_cache"
+
+# UI settings
+window_width: 800
+window_height: 600
+font_size: 12

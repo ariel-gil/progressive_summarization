@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import threading
 from pathlib import Path
+import shutil
 
 # Add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -14,91 +15,54 @@ from processor import process_file
 from viewer import SummaryViewer
 
 
-class ModernLoadingDialog(tk.Toplevel):
-    """Modern loading dialog with better styling."""
+class LoadingDialog(tk.Toplevel):
+    """Simple loading dialog."""
 
     def __init__(self, parent):
-        """
-        Initialize modern loading dialog.
-
-        Args:
-            parent: Parent window
-        """
+        """Initialize loading dialog."""
         super().__init__(parent)
         self.title("Processing...")
-        self.geometry("400x220")
+        self.geometry("350x120")
         self.resizable(False, False)
 
         # Center the window
         self.transient(parent)
         self.grab_set()
 
-        # Set colors
-        self.bg_primary = "#ffffff"
-        self.bg_secondary = "#f8f9fa"
-        self.accent = "#0d6efd"
-        self.config(bg=self.bg_primary)
-
-        # Main frame with padding
-        main_frame = tk.Frame(self, bg=self.bg_primary)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=30)
-
-        # Title
-        title = tk.Label(
-            main_frame, text="Processing Document", bg=self.bg_primary,
-            fg="#1a1a1a", font=("Segoe UI", 14, "bold")
+        # Message
+        message = tk.Label(
+            self, text="Processing document...\nThis may take a few minutes.",
+            font=('Arial', 10), pady=20
         )
-        title.pack(anchor=tk.W, pady=(0, 10))
-
-        # Subtitle
-        subtitle = tk.Label(
-            main_frame, text="Generating summaries at multiple abstraction levels...",
-            bg=self.bg_primary, fg="#6c757d", font=("Segoe UI", 9)
-        )
-        subtitle.pack(anchor=tk.W, pady=(0, 20))
+        message.pack()
 
         # Progress bar
         self.progress = ttk.Progressbar(
-            main_frame, mode='indeterminate', length=340
+            self, mode='indeterminate', length=300
         )
-        self.progress.pack(fill=tk.X, pady=(0, 15))
+        self.progress.pack(pady=10)
         self.progress.start(10)
-
-        # Status message
-        self.status_label = tk.Label(
-            main_frame, text="Starting processing...", bg=self.bg_primary,
-            fg="#6c757d", font=("Segoe UI", 9), justify=tk.LEFT
-        )
-        self.status_label.pack(anchor=tk.W)
-
-        # Cancel button
-        button_frame = tk.Frame(main_frame, bg=self.bg_primary)
-        button_frame.pack(fill=tk.X, pady=(20, 0))
-
-        self.cancel_button = tk.Button(
-            button_frame, text="Cancel", bg=self.bg_secondary,
-            fg="#1a1a1a", font=("Segoe UI", 9), padx=15, pady=6,
-            relief=tk.FLAT, cursor="hand2"
-        )
-        self.cancel_button.pack(anchor=tk.E)
-
-    def update_message(self, message: str):
-        """Update the loading message."""
-        self.status_label.config(text=message)
 
 
 def show_error(title: str, message: str):
-    """
-    Show error dialog.
-
-    Args:
-        title: Error dialog title
-        message: Error message
-    """
+    """Show error dialog."""
     root = tk.Tk()
-    root.withdraw()  # Hide main window
+    root.withdraw()
     messagebox.showerror(title, message)
     root.destroy()
+
+
+def clear_cache(cache_dir: str = '.summary_cache'):
+    """Clear the summary cache directory."""
+    cache_path = Path(cache_dir)
+    if cache_path.exists():
+        try:
+            shutil.rmtree(cache_path)
+            return True
+        except Exception as e:
+            print(f"Failed to clear cache: {e}")
+            return False
+    return True
 
 
 def main():
@@ -114,9 +78,24 @@ def main():
             show_error("Configuration Error", str(e))
             return
 
-        # Create temporary root for file dialog
+        # Create temporary root for dialogs
         root = tk.Tk()
-        root.withdraw()  # Hide the root window
+        root.withdraw()
+
+        # Ask if user wants to clear cache
+        clear = messagebox.askyesno(
+            "Clear Cache",
+            "Do you want to clear the summary cache?\n\n"
+            "Select 'Yes' to regenerate summaries from scratch.\n"
+            "Select 'No' to use cached summaries if available.",
+            icon='question'
+        )
+
+        if clear:
+            if clear_cache(config.get('cache_dir', '.summary_cache')):
+                messagebox.showinfo("Cache Cleared", "Summary cache has been cleared.")
+            else:
+                messagebox.showwarning("Cache Clear Failed", "Failed to clear cache, continuing anyway.")
 
         # Show file picker
         file_path = filedialog.askopenfilename(
@@ -128,7 +107,6 @@ def main():
         )
 
         if not file_path:
-            # User cancelled
             root.destroy()
             return
 
@@ -139,7 +117,7 @@ def main():
             return
 
         # Show loading dialog
-        loading = ModernLoadingDialog(root)
+        loading = LoadingDialog(root)
 
         # Process file in background thread
         document_cache = None
@@ -156,15 +134,13 @@ def main():
                 processing_done = True
 
         def check_processing():
-            """Poll to see if processing is complete."""
             if processing_done:
-                loading.progress.stop()  # Stop progress bar animation
+                loading.progress.stop()
                 loading.destroy()
             else:
-                # Check again in 100ms
                 root.after(100, check_processing)
 
-        # Start processing thread
+        # Start processing
         thread = threading.Thread(target=process_thread, daemon=True)
         thread.start()
 

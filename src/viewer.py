@@ -1,165 +1,12 @@
-"""Interactive UI for navigating progressive summaries with modern design."""
+"""Interactive UI for navigating progressive summaries."""
 
 import tkinter as tk
 from tkinter import ttk
 from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
-
-
-@dataclass
-class Colors:
-    """Color scheme for the application."""
-    bg_primary = "#ffffff"
-    bg_secondary = "#f8f9fa"
-    bg_tertiary = "#e9ecef"
-    text_primary = "#1a1a1a"
-    text_secondary = "#6c757d"
-    text_tertiary = "#adb5bd"
-    accent_primary = "#0d6efd"
-    accent_secondary = "#0dcaf0"
-    card_border = "#dee2e6"
-    success = "#198754"
-    hover = "#e7f1ff"
-
-
-class ModernButton(tk.Canvas):
-    """Custom button with modern styling and hover effects."""
-
-    def __init__(self, parent, text: str, command=None, **kwargs):
-        """Initialize modern button."""
-        super().__init__(parent, height=32, bg=Colors.bg_primary, highlightthickness=0, **kwargs)
-        self.command = command
-        self.text = text
-        self.is_hovered = False
-
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-        self.bind("<Button-1>", self._on_click)
-
-        self.draw_button()
-
-    def draw_button(self):
-        """Draw button with current state."""
-        self.delete("all")
-        bg = Colors.hover if self.is_hovered else Colors.accent_primary
-
-        self.create_rectangle(
-            2, 2, self.winfo_width() - 2, self.winfo_height() - 2,
-            fill=bg, outline=bg, tags="button"
-        )
-        self.create_text(
-            self.winfo_width() // 2, self.winfo_height() // 2,
-            text=self.text, fill="white", font=("Segoe UI", 9, "bold"),
-            tags="text"
-        )
-
-    def _on_enter(self, event):
-        """Handle mouse enter."""
-        self.is_hovered = True
-        self.draw_button()
-
-    def _on_leave(self, event):
-        """Handle mouse leave."""
-        self.is_hovered = False
-        self.draw_button()
-
-    def _on_click(self, event):
-        """Handle click."""
-        if self.command:
-            self.command()
-
-
-class ChunkCard(tk.Frame):
-    """Modern card widget for displaying a chunk."""
-
-    def __init__(self, parent, chunk: Dict, index: int, level: int, max_level: int,
-                 on_click=None, **kwargs):
-        """Initialize chunk card."""
-        super().__init__(parent, bg=Colors.bg_primary, **kwargs)
-        self.chunk = chunk
-        self.on_click = on_click
-        self.is_hovered = False
-
-        # Card styling
-        self.config(highlightthickness=1, highlightbackground=Colors.card_border)
-
-        # Bind hover effects
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-
-        self._create_widgets(index, level, max_level)
-
-    def _on_enter(self, event):
-        """Handle mouse enter."""
-        self.is_hovered = True
-        self.config(highlightbackground=Colors.accent_primary, highlightthickness=2)
-
-    def _on_leave(self, event):
-        """Handle mouse leave."""
-        self.is_hovered = False
-        self.config(highlightbackground=Colors.card_border, highlightthickness=1)
-
-    def _create_widgets(self, index: int, level: int, max_level: int):
-        """Create card widgets."""
-        # Header with title and level indicator
-        header = tk.Frame(self, bg=Colors.bg_secondary, height=50)
-        header.pack(fill=tk.X, side=tk.TOP)
-        header.pack_propagate(False)
-
-        # Title
-        title_text = f"Section {index + 1}" if level > 0 else f"Paragraph {index + 1}"
-        title = tk.Label(
-            header, text=title_text, bg=Colors.bg_secondary,
-            fg=Colors.text_primary, font=("Segoe UI", 11, "bold")
-        )
-        title.pack(side=tk.LEFT, padx=12, pady=8)
-
-        # Level badge
-        badge_text = f"Level {level}/{max_level}" if level > 0 else "Original"
-        badge = tk.Label(
-            header, text=badge_text, bg=Colors.accent_secondary,
-            fg="white", font=("Segoe UI", 8), padx=8, pady=2
-        )
-        badge.pack(side=tk.RIGHT, padx=12, pady=8)
-
-        # Content
-        content_frame = tk.Frame(self, bg=Colors.bg_primary)
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
-
-        # Text widget
-        text_height = min(max(len(self.chunk['content']) // 80 + 1, 3), 8)
-        text_widget = tk.Text(
-            content_frame, wrap=tk.WORD,
-            font=("Segoe UI", 10), height=text_height,
-            relief=tk.FLAT, bg=Colors.bg_tertiary,
-            fg=Colors.text_primary, padx=10, pady=10,
-            borderwidth=0
-        )
-        text_widget.insert('1.0', self.chunk['content'])
-        text_widget.config(state=tk.DISABLED)
-        text_widget.pack(fill=tk.BOTH, expand=True)
-
-        # Footer with interaction hint
-        if self.chunk.get('child_ids') and self.on_click:
-            footer = tk.Frame(self, bg=Colors.bg_secondary, height=40)
-            footer.pack(fill=tk.X, side=tk.BOTTOM)
-            footer.pack_propagate(False)
-
-            hint = tk.Label(
-                footer, text="↙ Click to zoom in", bg=Colors.bg_secondary,
-                fg=Colors.accent_primary, font=("Segoe UI", 9, "italic"),
-                cursor="hand2"
-            )
-            hint.pack(side=tk.LEFT, padx=12, pady=8)
-
-            # Make card clickable
-            for widget in [self, header, title, footer, hint, text_widget]:
-                widget.bind("<Button-1>", lambda e: self.on_click() if self.on_click else None)
-                widget.config(cursor="hand2" if self.chunk.get('child_ids') else "arrow")
 
 
 class SummaryViewer(tk.Tk):
-    """Main window for Progressive Summarization Viewer with modern design."""
+    """Main window for Progressive Summarization Viewer."""
 
     def __init__(self, document_cache: Dict[str, Any], config: Dict[str, Any]):
         """
@@ -188,8 +35,9 @@ class SummaryViewer(tk.Tk):
         filename = document_cache['metadata']['filename']
         self.title(f"Progressive Summarization - {filename}")
 
-        self.geometry("1000x700")
-        self.config(bg=Colors.bg_primary)
+        width = config.get('window_width', 900)
+        height = config.get('window_height', 700)
+        self.geometry(f"{width}x{height}")
 
         # Create UI components
         self._create_widgets()
@@ -199,76 +47,55 @@ class SummaryViewer(tk.Tk):
 
     def _create_widgets(self):
         """Create and layout UI components."""
-        # Top section with file info and controls
-        top_section = tk.Frame(self, bg=Colors.bg_secondary, height=80)
-        top_section.pack(fill=tk.X, side=tk.TOP)
-        top_section.pack_propagate(False)
-
-        # Left side: file info
-        info_frame = tk.Frame(top_section, bg=Colors.bg_secondary)
-        info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20, pady=15)
+        # Top bar with file info
+        top_frame = tk.Frame(self, bg='#f0f0f0', height=60)
+        top_frame.pack(fill=tk.X, side=tk.TOP)
+        top_frame.pack_propagate(False)
 
         filename = self.document_cache['metadata']['filename']
         file_label = tk.Label(
-            info_frame, text=f"📄 {filename}", bg=Colors.bg_secondary,
-            fg=Colors.text_primary, font=("Segoe UI", 12, "bold")
+            top_frame, text=f"File: {filename}",
+            bg='#f0f0f0', font=('Arial', 10, 'bold')
         )
-        file_label.pack(anchor=tk.W)
+        file_label.pack(side=tk.LEFT, padx=15, pady=15)
 
-        self.level_label = tk.Label(
-            info_frame, text="", bg=Colors.bg_secondary,
-            fg=Colors.text_secondary, font=("Segoe UI", 9)
-        )
-        self.level_label.pack(anchor=tk.W, pady=(5, 0))
-
-        # Slider section with better styling
-        slider_frame = tk.Frame(self, bg=Colors.bg_primary)
-        slider_frame.pack(fill=tk.X, padx=20, pady=(15, 10))
+        # Slider control
+        slider_frame = tk.Frame(self)
+        slider_frame.pack(fill=tk.X, padx=20, pady=10)
 
         slider_label = tk.Label(
-            slider_frame, text="Abstraction Level", bg=Colors.bg_primary,
-            fg=Colors.text_primary, font=("Segoe UI", 10, "bold")
+            slider_frame, text="Abstraction Level:",
+            font=('Arial', 9)
         )
-        slider_label.pack(anchor=tk.W, pady=(0, 8))
+        slider_label.pack(side=tk.LEFT, padx=(0, 10))
 
-        # Slider with custom styling
+        # Level indicator
+        self.level_indicator = tk.Label(
+            slider_frame, text=f"Level {self.max_level}/{self.max_level}",
+            font=('Arial', 9, 'bold')
+        )
+        self.level_indicator.pack(side=tk.RIGHT, padx=10)
+
+        # Slider
         self.slider = ttk.Scale(
-            slider_frame, from_=0, to=self.max_level, orient=tk.HORIZONTAL,
+            slider_frame, from_=0, to=self.max_level,
+            orient=tk.HORIZONTAL,
             command=self._on_slider_change
         )
         self.slider.set(self.max_level)
-        self.slider.pack(fill=tk.X, pady=(0, 8))
+        self.slider.pack(fill=tk.X, expand=True, padx=(0, 10))
 
-        # Level markers
-        markers_frame = tk.Frame(slider_frame, bg=Colors.bg_primary)
-        markers_frame.pack(fill=tk.X)
+        # Main content area with scrollbar
+        content_frame = tk.Frame(self)
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 10))
 
-        for i in range(self.max_level + 1):
-            label_text = "Original" if i == 0 else f"L{i}"
-            marker = tk.Label(
-                markers_frame, text=label_text, bg=Colors.bg_primary,
-                fg=Colors.text_tertiary, font=("Segoe UI", 8)
-            )
-            marker.pack(side=tk.LEFT, expand=True)
+        # Create canvas and scrollbar
+        self.canvas = tk.Canvas(content_frame, bg='white')
+        scrollbar = ttk.Scrollbar(content_frame, orient=tk.VERTICAL, command=self.canvas.yview)
 
-        # Breadcrumb trail
-        self.breadcrumb_frame = tk.Frame(self, bg=Colors.bg_primary, height=30)
-        self.breadcrumb_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
-        self.breadcrumb_frame.pack_propagate(False)
+        self.scrollable_frame = tk.Frame(self.canvas, bg='white')
 
-        # Content area (scrollable)
-        content_outer = tk.Frame(self, bg=Colors.bg_primary)
-        content_outer.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
-
-        # Canvas with scrollbar
-        self.canvas = tk.Canvas(
-            content_outer, bg=Colors.bg_primary, highlightthickness=0
-        )
-        scrollbar = ttk.Scrollbar(
-            content_outer, orient=tk.VERTICAL, command=self.canvas.yview
-        )
-
-        self.scrollable_frame = tk.Frame(self.canvas, bg=Colors.bg_primary)
+        # Configure canvas scrolling
         self.scrollable_frame.bind(
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -280,34 +107,19 @@ class SummaryViewer(tk.Tk):
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Mousewheel binding
+        # Mouse wheel scrolling
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
 
         # Status bar
-        status_frame = tk.Frame(self, bg=Colors.bg_secondary, height=40)
+        status_frame = tk.Frame(self, bg='#f0f0f0', height=30)
         status_frame.pack(fill=tk.X, side=tk.BOTTOM)
         status_frame.pack_propagate(False)
 
         self.status_label = tk.Label(
-            status_frame, text="Ready", bg=Colors.bg_secondary,
-            fg=Colors.text_secondary, font=("Segoe UI", 9), padx=20, pady=10
+            status_frame, text="Ready",
+            bg='#f0f0f0', font=('Arial', 8)
         )
-        self.status_label.pack(anchor=tk.W)
-
-    def _update_breadcrumbs(self):
-        """Update breadcrumb trail display."""
-        for widget in self.breadcrumb_frame.winfo_children():
-            widget.destroy()
-
-        if not self.breadcrumb_trail:
-            return
-
-        trail_text = " → ".join(self.breadcrumb_trail + ["Current"])
-        breadcrumb = tk.Label(
-            self.breadcrumb_frame, text=trail_text, bg=Colors.bg_primary,
-            fg=Colors.text_secondary, font=("Segoe UI", 9), wraplength=900
-        )
-        breadcrumb.pack(anchor=tk.W)
+        self.status_label.pack(side=tk.LEFT, padx=15, pady=5)
 
     def _on_mousewheel(self, event):
         """Handle mousewheel scrolling."""
@@ -328,16 +140,13 @@ class SummaryViewer(tk.Tk):
 
         Args:
             level: Abstraction level to display
-            parent_id: Filter by parent (for Phase 2 zoom feature)
+            parent_id: Filter by parent (for zoom feature)
         """
         # Clear current content
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
 
-        # Update breadcrumbs
-        self._update_breadcrumbs()
-
-        # Filter chunks by level (and parent if specified)
+        # Filter chunks by level
         filtered_chunks = [
             chunk for chunk in self.chunks
             if chunk['level'] == level and (parent_id is None or chunk.get('parent_id') == parent_id)
@@ -346,75 +155,63 @@ class SummaryViewer(tk.Tk):
         # Sort by position
         filtered_chunks.sort(key=lambda c: c['position'])
 
-        # Update level label
-        if level == 0:
-            status_text = "Original text - Full paragraphs"
-        elif level == self.max_level:
-            status_text = f"Most abstract - Complete summary"
-        else:
-            status_text = f"Summary level {level} of {self.max_level}"
+        # Update level indicator
+        level_text = "Original" if level == 0 else f"Level {level}/{self.max_level}"
+        self.level_indicator.config(text=level_text)
 
-        self.level_label.config(text=status_text)
-
-        # Display chunks
+        # Display message if no chunks
         if not filtered_chunks:
             no_content = tk.Label(
                 self.scrollable_frame, text="No content at this level",
-                bg=Colors.bg_primary, fg=Colors.text_tertiary,
-                font=("Segoe UI", 11)
+                bg='white', fg='#999', font=('Arial', 11)
             )
             no_content.pack(pady=40)
+            self.status_label.config(text="No chunks to display")
             return
 
-        # Create cards for each chunk
+        # Create simple text widgets for each chunk
         for idx, chunk in enumerate(filtered_chunks):
-            def make_click_handler(chunk_id):
-                def handler():
-                    self._on_chunk_click(chunk_id)
-                return handler
-
-            card = ChunkCard(
-                self.scrollable_frame, chunk, idx, level, self.max_level,
-                on_click=make_click_handler(chunk['id']) if chunk.get('child_ids') else None
+            # Container for each chunk
+            chunk_container = tk.Frame(
+                self.scrollable_frame,
+                bg='white',
+                relief=tk.RIDGE,
+                borderwidth=1
             )
-            card.pack(fill=tk.X, pady=10)
+            chunk_container.pack(fill=tk.X, pady=8, padx=5)
+
+            # Header with chunk number
+            header = tk.Frame(chunk_container, bg='#e8e8e8', height=30)
+            header.pack(fill=tk.X)
+            header.pack_propagate(False)
+
+            chunk_title = "Paragraph" if level == 0 else "Summary"
+            title_label = tk.Label(
+                header,
+                text=f"{chunk_title} {idx + 1}",
+                bg='#e8e8e8',
+                font=('Arial', 9, 'bold')
+            )
+            title_label.pack(side=tk.LEFT, padx=10, pady=5)
+
+            # Content text
+            text_widget = tk.Text(
+                chunk_container,
+                wrap=tk.WORD,
+                font=('Arial', 10),
+                relief=tk.FLAT,
+                bg='white',
+                padx=10,
+                pady=10,
+                height=max(3, min(10, len(chunk['content']) // 80 + 1))
+            )
+            text_widget.insert('1.0', chunk['content'])
+            text_widget.config(state=tk.DISABLED)
+            text_widget.pack(fill=tk.BOTH, expand=True)
 
         # Update status
         chunk_count = len(filtered_chunks)
-        chunk_word = "chunk" if chunk_count == 1 else "chunks"
-        self.status_label.config(
-            text=f"Showing {chunk_count} {chunk_word} at level {level}"
-        )
+        self.status_label.config(text=f"Showing {chunk_count} chunks at level {level}")
 
-    def _on_chunk_click(self, chunk_id: str):
-        """
-        Handle chunk click for zoom-in navigation.
-
-        Args:
-            chunk_id: ID of clicked chunk
-        """
-        chunk = self.chunk_id_map.get(chunk_id)
-        if not chunk or not chunk.get('child_ids'):
-            return
-
-        # Update breadcrumb trail
-        chunk_num = f"Section {chunk['position']}"
-        self.breadcrumb_trail.append(chunk_num)
-
-        # Navigate to child level
-        self.current_level -= 1
-        self.current_parent = chunk_id
-        self.slider.set(self.current_level)
-        self.render_level(self.current_level, parent_id=chunk_id)
-
-    def on_breadcrumb_click(self, index: int):
-        """
-        Handle breadcrumb click to navigate back.
-
-        Args:
-            index: Index in breadcrumb trail
-        """
-        self.breadcrumb_trail = self.breadcrumb_trail[:index]
-        self.current_level += 1
-        self.slider.set(self.current_level)
-        self.render_level(self.current_level)
+        # Reset scroll to top
+        self.canvas.yview_moveto(0)

@@ -20,12 +20,16 @@ Chunk = Dict[str, Any]
 DocumentCache = Dict[str, Any]
 
 
-def parse_markdown(file_path: str) -> List[Chunk]:
+def parse_markdown(file_path: str, min_chunk_size: int = 100) -> List[Chunk]:
     """
     Parse markdown file into level 0 chunks (paragraphs).
 
+    Combines short paragraphs and filters out very small chunks to create
+    more meaningful semantic units.
+
     Args:
         file_path: Path to markdown file
+        min_chunk_size: Minimum characters per chunk (default 100)
 
     Returns:
         List of level 0 Chunk dictionaries
@@ -33,23 +37,53 @@ def parse_markdown(file_path: str) -> List[Chunk]:
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Split by double newlines to get paragraphs
-    paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
+    # Split by double newlines to get initial paragraphs
+    raw_paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
 
-    # Create level 0 chunks
+    # Combine small paragraphs into larger semantic chunks
     chunks = []
-    for idx, para in enumerate(paragraphs):
+    current_chunk_text = []
+    current_chunk_size = 0
+
+    for para in raw_paragraphs:
+        para_size = len(para)
+
+        # If adding this paragraph would exceed a reasonable size, or
+        # if we have enough content already, create a chunk
+        if current_chunk_size > 0 and (
+            current_chunk_size + para_size > 1000 or  # Max chunk size
+            (current_chunk_size >= min_chunk_size and para_size > 200)  # Both are substantial
+        ):
+            # Save current chunk
+            chunk_content = '\n\n'.join(current_chunk_text)
+            chunks.append(chunk_content)
+            current_chunk_text = [para]
+            current_chunk_size = para_size
+        else:
+            # Add to current chunk
+            current_chunk_text.append(para)
+            current_chunk_size += para_size
+
+    # Add final chunk if exists
+    if current_chunk_text:
+        chunk_content = '\n\n'.join(current_chunk_text)
+        if len(chunk_content) >= min_chunk_size or not chunks:  # Keep if substantial or only chunk
+            chunks.append(chunk_content)
+
+    # Convert to Chunk dictionaries
+    result = []
+    for idx, content_text in enumerate(chunks):
         chunk = {
             "id": f"chunk_{idx}",
             "level": 0,
-            "content": para,
+            "content": content_text,
             "parent_id": None,
             "child_ids": [],
             "position": idx
         }
-        chunks.append(chunk)
+        result.append(chunk)
 
-    return chunks
+    return result
 
 
 def group_chunks(chunks: List[Chunk], group_size: int = 5) -> List[List[Chunk]]:

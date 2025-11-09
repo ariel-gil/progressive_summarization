@@ -80,8 +80,8 @@ class ChunkCard(tk.Frame):
         self.on_click = on_click
         self.is_hovered = False
 
-        # Card styling
-        self.config(highlightthickness=1, highlightbackground=Colors.card_border)
+        # Card styling with subtle shadow effect
+        self.config(highlightthickness=1, highlightbackground=Colors.card_border, relief=tk.FLAT)
 
         # Bind hover effects
         self.bind("<Enter>", self._on_enter)
@@ -102,7 +102,7 @@ class ChunkCard(tk.Frame):
     def _create_widgets(self, index: int, level: int, max_level: int):
         """Create card widgets."""
         # Header with title and level indicator
-        header = tk.Frame(self, bg=Colors.bg_secondary, height=50)
+        header = tk.Frame(self, bg=Colors.bg_secondary, height=45)
         header.pack(fill=tk.X, side=tk.TOP)
         header.pack_propagate(False)
 
@@ -117,31 +117,32 @@ class ChunkCard(tk.Frame):
 
         title = tk.Label(
             header, text=title_text, bg=Colors.bg_secondary,
-            fg=Colors.text_primary, font=("Segoe UI", 11, "bold")
+            fg=Colors.text_primary, font=("Segoe UI", 10, "bold")
         )
-        title.pack(side=tk.LEFT, padx=12, pady=8)
+        title.pack(side=tk.LEFT, padx=14, pady=10, anchor=tk.W)
 
         # Level badge
-        badge_text = f"Level {level}/{max_level}" if level > 0 else "Original"
+        badge_text = f"L{level}/{max_level}" if level > 0 else "Original"
         badge = tk.Label(
             header, text=badge_text, bg=Colors.accent_secondary,
-            fg="white", font=("Segoe UI", 8), padx=8, pady=2
+            fg="white", font=("Segoe UI", 7, "bold"), padx=6, pady=2
         )
-        badge.pack(side=tk.RIGHT, padx=12, pady=8)
+        badge.pack(side=tk.RIGHT, padx=14, pady=10)
 
         # Content
         content_frame = tk.Frame(self, bg=Colors.bg_primary)
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=14, pady=12)
 
-        # Content label (faster than Text widget for read-only text)
-        # Use Label for better performance, wrapping text naturally
+        # Content label with better text wrapping
+        # Get window width for wraplength calculation (roughly)
         text_label = tk.Label(
             content_frame, text=self.chunk['content'],
-            font=("Segoe UI", 10), wraplength=600,
-            justify=tk.LEFT, bg=Colors.bg_tertiary,
-            fg=Colors.text_primary, padx=10, pady=10
+            font=("Segoe UI", 9), wraplength=700,
+            justify=tk.LEFT, bg=Colors.bg_primary,
+            fg=Colors.text_primary, padx=0, pady=0,
+            anchor=tk.NW
         )
-        text_label.pack(fill=tk.BOTH, expand=True)
+        text_label.pack(fill=tk.BOTH, expand=True, anchor=tk.NW)
 
         # Footer with interaction hint and depth indicator
         if self.chunk.get('child_ids') and self.on_click:
@@ -205,6 +206,7 @@ class SummaryViewer(tk.Tk):
         self.render_pending = False
         self.pending_level = None
         self.pending_parent = None
+        self.pending_trail = []
 
         # Setup window
         filename = document_cache['metadata']['filename']
@@ -316,7 +318,7 @@ class SummaryViewer(tk.Tk):
 
         # Content area (scrollable)
         content_outer = tk.Frame(self, bg=Colors.bg_primary)
-        content_outer.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        content_outer.pack(fill=tk.BOTH, expand=True, padx=16, pady=(10, 16))
 
         # Canvas with scrollbar
         self.canvas = tk.Canvas(
@@ -528,7 +530,7 @@ Tips:
                 self.scrollable_frame, chunk, idx, level, self.max_level,
                 on_click=make_click_handler(chunk['id']) if chunk.get('child_ids') else None
             )
-            card.pack(fill=tk.X, pady=10)
+            card.pack(fill=tk.X, pady=8, padx=2)
 
         # Update status
         chunk_count = len(filtered_chunks)

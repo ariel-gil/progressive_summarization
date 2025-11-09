@@ -57,14 +57,14 @@ def _parse_with_headers(lines: List[str], header_pattern) -> List[Chunk]:
     """
     Parse markdown with header-based chunking.
 
-    Groups content under headers as topic-based chunks, but breaks large
+    Groups content under headers as topic-based chunks, breaking large
     sections into smaller paragraph-based chunks for better granularity.
     """
     chunks = []
     chunk_id = 0
     current_header = None
     current_header_level = 0
-    section_paragraphs = []
+    section_lines = []
     position = 0
 
     for line in lines:
@@ -72,14 +72,13 @@ def _parse_with_headers(lines: List[str], header_pattern) -> List[Chunk]:
 
         if header_match:
             # Found a new header - save previous section's paragraphs
-            if section_paragraphs:
-                chunks.extend(_create_paragraphs_chunks(
-                    section_paragraphs, current_header, current_header_level,
+            if section_lines:
+                section_chunks, chunk_id, position = _create_paragraphs_chunks(
+                    section_lines, current_header, current_header_level,
                     chunk_id, position
-                ))
-                chunk_id += len([p for p in section_paragraphs if p.strip()])
-                position += len([p for p in section_paragraphs if p.strip()])
-                section_paragraphs = []
+                )
+                chunks.extend(section_chunks)
+                section_lines = []
 
             # Extract header info
             header_symbols = header_match.group(1)
@@ -89,26 +88,32 @@ def _parse_with_headers(lines: List[str], header_pattern) -> List[Chunk]:
 
         else:
             # Accumulate lines for paragraph detection
-            section_paragraphs.append(line)
+            section_lines.append(line)
 
     # Save final section
-    if section_paragraphs:
-        chunks.extend(_create_paragraphs_chunks(
-            section_paragraphs, current_header, current_header_level,
+    if section_lines:
+        section_chunks, chunk_id, position = _create_paragraphs_chunks(
+            section_lines, current_header, current_header_level,
             chunk_id, position
-        ))
+        )
+        chunks.extend(section_chunks)
 
     return chunks
 
 
 def _create_paragraphs_chunks(lines: List[str], header: str, header_level: int,
-                             chunk_id: int, position: int) -> List[Chunk]:
+                             start_chunk_id: int, start_position: int) -> Tuple[List[Chunk], int, int]:
     """
     Create chunks from section content by breaking into paragraphs.
 
     Each paragraph under a header becomes a separate chunk for better granularity.
+    Returns tuple of (chunks, next_chunk_id, next_position).
     """
     chunks = []
+    chunk_id = start_chunk_id
+    position = start_position
+
+    # Split section into paragraphs
     paragraphs = [p.strip() for p in '\n'.join(lines).split('\n\n') if p.strip()]
 
     for para in paragraphs:
@@ -127,7 +132,7 @@ def _create_paragraphs_chunks(lines: List[str], header: str, header_level: int,
             chunk_id += 1
             position += 1
 
-    return chunks
+    return chunks, chunk_id, position
 
 
 def _parse_without_headers(content: str) -> List[Chunk]:

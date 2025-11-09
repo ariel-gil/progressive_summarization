@@ -39,4 +39,5 @@ ENV/
 .DS_Store
 Thumbs.db
 
-config.yaml
+# Environment variables (contains API key)
+.env

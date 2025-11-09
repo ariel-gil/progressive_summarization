@@ -21,19 +21,21 @@ pip install -r requirements.txt
 
 ### 2. Configure API Key
 
-Edit `config.yaml` and add your OpenRouter API key:
-
-```yaml
-openrouter_api_key: "your-key-here"
-```
-
-Or set it as an environment variable:
+Copy the `.env.template` file to `.env`:
 
 ```bash
-export OPENROUTER_API_KEY="your-key-here"
+cp .env.template .env
+```
+
+Then edit `.env` and add your OpenRouter API key:
+
+```
+OPENROUTER_API_KEY=your-actual-api-key-here
 ```
 
 Get your API key from: https://openrouter.ai/keys
+
+**Note:** The `.env` file is gitignored and will never be committed to keep your API key secure.
 
 ### 3. Run the Application
 

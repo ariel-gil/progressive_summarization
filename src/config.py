@@ -4,6 +4,10 @@ import os
 import yaml
 from pathlib import Path
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
@@ -29,8 +33,8 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
 
-    # Validate required fields
-    required_fields = ['openrouter_api_key', 'model', 'abstraction_levels']
+    # Validate required fields (API key comes from .env)
+    required_fields = ['model', 'abstraction_levels']
     for field in required_fields:
         if field not in config:
             raise ValueError(f"Missing required config field: {field}")
@@ -50,17 +54,14 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     if config['group_size'] < 2:
         raise ValueError("group_size must be >= 2")
 
-    # Check API key
-    if not config['openrouter_api_key'] or config['openrouter_api_key'] == "":
-        # Try environment variable
-        env_key = os.getenv('OPENROUTER_API_KEY')
-        if env_key:
-            config['openrouter_api_key'] = env_key
-        else:
-            raise ValueError(
-                "OpenRouter API key not found. Please set it in config.yaml "
-                "or as OPENROUTER_API_KEY environment variable."
-            )
+    # Load API key from environment variable
+    api_key = os.getenv('OPENROUTER_API_KEY')
+    if not api_key:
+        raise ValueError(
+            "OpenRouter API key not found. "
+            "Please copy .env.template to .env and add your API key."
+        )
+    config['openrouter_api_key'] = api_key
 
     return config
 

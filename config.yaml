@@ -4,7 +4,7 @@
 
 # Model settings
 model: "google/gemini-2.5-flash"
-abstraction_levels: 7  # More levels = smoother transitions
+abstraction_levels: 10  # More levels = smoother, more granular transitions
 
 # Processing settings
 chunk_strategy: "paragraph"

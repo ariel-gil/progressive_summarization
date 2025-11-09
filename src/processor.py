@@ -42,34 +42,61 @@ async def generate_summary(
     compression_ratio = level / total_levels
 
     if level == total_levels:
-        # Ultra-compressed: 1-2 paragraphs
-        prompt = f"""Provide an ultra-compressed summary of the following document in 1-2 short paragraphs.
-Capture only the absolute core essence and main takeaway.
+        # Level 10: 2 sentences max
+        prompt = f"""Provide an EXTREMELY brief summary of the following document in exactly 1-2 sentences.
+Capture ONLY the absolute core essence.
 
 Document:
 {content}
 
-Ultra-compressed summary:"""
-    elif compression_ratio >= 0.85:
-        # Very high compression: 2-4 paragraphs
-        prompt = f"""Provide a very brief summary of the following document in 2-4 paragraphs.
-Focus on the most critical points and key conclusions.
+One-sentence summary:"""
+    elif compression_ratio >= 0.9:
+        # Level 9: 3-5 sentences
+        prompt = f"""Provide a very brief summary of the following document in 3-5 sentences.
+Focus on the single most important takeaway and key point.
 
 Document:
 {content}
 
 Brief summary:"""
-    elif compression_ratio >= 0.65:
-        # High compression: executive summary
-        prompt = f"""Provide an executive summary of the following document in about 5-8 paragraphs.
-Include the main points, key insights, and important conclusions.
+    elif compression_ratio >= 0.8:
+        # Level 8: 1 short paragraph
+        prompt = f"""Provide a concise summary of the following document in 1 short paragraph (4-6 sentences).
+Include the main point and 1-2 key supporting details.
+
+Document:
+{content}
+
+Paragraph summary:"""
+    elif compression_ratio >= 0.7:
+        # Level 7: 2 paragraphs
+        prompt = f"""Provide a summary of the following document in exactly 2 paragraphs.
+First paragraph: main thesis/point. Second paragraph: key supporting details.
+
+Document:
+{content}
+
+Two-paragraph summary:"""
+    elif compression_ratio >= 0.6:
+        # Level 6: 3-4 paragraphs
+        prompt = f"""Provide a summary of the following document in 3-4 paragraphs.
+Include main points and important conclusions.
+
+Document:
+{content}
+
+Summary:"""
+    elif compression_ratio >= 0.5:
+        # Level 5: Executive summary (5-7 paragraphs)
+        prompt = f"""Provide an executive summary of the following document in 5-7 paragraphs.
+Cover main points, key insights, and important conclusions.
 
 Document:
 {content}
 
 Executive summary:"""
-    elif compression_ratio >= 0.4:
-        # Medium compression: comprehensive summary
+    elif compression_ratio >= 0.35:
+        # Level 4-3: Comprehensive summary
         prompt = f"""Provide a comprehensive summary of the following document.
 Preserve key details, important examples, and main arguments.
 Target roughly {int(compression_ratio * 100)}% of the original length.
@@ -79,7 +106,7 @@ Document:
 
 Comprehensive summary:"""
     else:
-        # Low compression: detailed summary
+        # Level 2-1: Detailed summary
         prompt = f"""Provide a detailed summary of the following document.
 Preserve most key details, examples, nuanced points, and maintain the document structure.
 Target roughly {int(compression_ratio * 100)}% of the original length.

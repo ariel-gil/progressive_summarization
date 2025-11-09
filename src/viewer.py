@@ -192,7 +192,7 @@ class SummaryViewer(tk.Tk):
         super().__init__()
 
         self.document_cache = document_cache
-        self.config = config
+        self.app_config = config
         self.chunks = document_cache['chunks']
 
         # Calculate max level from chunks
@@ -209,7 +209,7 @@ class SummaryViewer(tk.Tk):
         self.title(f"Progressive Summarization - {filename}")
 
         self.geometry("1000x700")
-        self.config(bg=Colors.bg_primary)
+        super().config(bg=Colors.bg_primary)
 
         # Create UI components
         self._create_widgets()

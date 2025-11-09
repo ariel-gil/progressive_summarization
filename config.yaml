@@ -1,8 +1,13 @@
 # Progressive Summarization Viewer Configuration
 
+<<<<<<< HEAD
 # OpenRouter API Key (required)
 # Get your key from: https://openrouter.ai/keys
 # You can also set this via OPENROUTER_API_KEY environment variable
+=======
+# API Key is now loaded from .env file
+# Copy .env.template to .env and add your OpenRouter API key there
+>>>>>>> 43c88acabad98a88b6dfceab65c0288dd76fb26d
 
 # Model settings
 model: "google/gemini-2.5-flash"

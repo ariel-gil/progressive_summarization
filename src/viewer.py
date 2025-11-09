@@ -133,18 +133,15 @@ class ChunkCard(tk.Frame):
         content_frame = tk.Frame(self, bg=Colors.bg_primary)
         content_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
 
-        # Text widget
-        text_height = min(max(len(self.chunk['content']) // 80 + 1, 3), 8)
-        text_widget = tk.Text(
-            content_frame, wrap=tk.WORD,
-            font=("Segoe UI", 10), height=text_height,
-            relief=tk.FLAT, bg=Colors.bg_tertiary,
-            fg=Colors.text_primary, padx=10, pady=10,
-            borderwidth=0
+        # Content label (faster than Text widget for read-only text)
+        # Use Label for better performance, wrapping text naturally
+        text_label = tk.Label(
+            content_frame, text=self.chunk['content'],
+            font=("Segoe UI", 10), wraplength=600,
+            justify=tk.LEFT, bg=Colors.bg_tertiary,
+            fg=Colors.text_primary, padx=10, pady=10
         )
-        text_widget.insert('1.0', self.chunk['content'])
-        text_widget.config(state=tk.DISABLED)
-        text_widget.pack(fill=tk.BOTH, expand=True)
+        text_label.pack(fill=tk.BOTH, expand=True)
 
         # Footer with interaction hint and depth indicator
         if self.chunk.get('child_ids') and self.on_click:
@@ -173,7 +170,7 @@ class ChunkCard(tk.Frame):
                 depth_indicator.pack(side=tk.RIGHT, padx=4)
 
             # Make card clickable
-            for widget in [self, header, title, footer, hint, text_widget]:
+            for widget in [self, header, title, footer, hint, text_label]:
                 widget.bind("<Button-1>", lambda e: self.on_click() if self.on_click else None)
                 widget.config(cursor="hand2" if self.chunk.get('child_ids') else "arrow")
 
@@ -203,6 +200,11 @@ class SummaryViewer(tk.Tk):
         self.current_parent = None
         self.breadcrumb_trail = []
         self.chunk_id_map = {chunk['id']: chunk for chunk in self.chunks}
+
+        # Debounce rendering
+        self.render_pending = False
+        self.pending_level = None
+        self.pending_parent = None
 
         # Setup window
         filename = document_cache['metadata']['filename']
@@ -371,21 +373,36 @@ class SummaryViewer(tk.Tk):
         self.canvas.yview_scroll(int(-1 * (event.delta / 120) * 2), "units")
 
     def _on_slider_change(self, value):
-        """Handle slider value change."""
+        """Handle slider value change with debouncing."""
         # Scale down from the slider's 0-maxlevel*10 range to actual level
         new_level = int(float(value) / self.slider_scale)
 
-        # Update real-time display
+        # Update real-time display (fast)
         descriptions = ["Detailed", "Summary", "Abstract", "Very Abstract", "Ultra-Concise"]
         desc = descriptions[min(new_level, len(descriptions) - 1)]
         self.slider_value_label.config(text=f"Level {new_level} • {desc}")
 
+        # Debounce rendering - only render when slider settles
         if new_level != self.current_level:
-            self.current_level = new_level
-            self.current_parent = None
-            self.breadcrumb_trail = []
-            # Use after() for smooth rendering without blocking
-            self.after(0, lambda: self.render_level(self.current_level))
+            self.pending_level = new_level
+            self.pending_parent = None
+            self.pending_trail = []
+
+            # Cancel previous pending render
+            if self.render_pending:
+                self.after_cancel(self.render_pending)
+
+            # Schedule render with 100ms delay
+            self.render_pending = self.after(100, self._do_pending_render)
+
+    def _do_pending_render(self):
+        """Execute pending render after debounce delay."""
+        if self.pending_level is not None:
+            self.current_level = self.pending_level
+            self.current_parent = self.pending_parent
+            self.breadcrumb_trail = self.pending_trail
+            self.render_level(self.current_level)
+        self.render_pending = False
 
     def _keyboard_navigate(self, direction: int):
         """Navigate between levels with arrow keys."""

@@ -19,7 +19,7 @@ class SummaryViewer(tk.Tk):
         super().__init__()
 
         self.document_cache = document_cache
-        self.config = config
+        self.app_config = config  # Renamed to avoid shadowing tk.config()
         self.chunks = document_cache['chunks']
 
         # Calculate max level from chunks
